@@ -44,11 +44,24 @@ class StatusInformation(tk.Frame):
         self.next_system_lbl_content.configure(text=new_system)
 
 
+class RunControl(tk.Frame):
+    def __init__(self, application, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.application = application
+
+        self.run_control_button = tk.Button(self, text="Run", height=2, width=10, command=self.on_run_control_button)
+        self.run_control_button.pack(fill="both")
+
+    def on_run_control_button(self):
+        pass
+
+
 class LogFrame(tk.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.main_text_box = tk.Text(self, height=20, width=70, wrap="none")
+        self.main_text_box = tk.Text(self, height=10, width=50, wrap="none")
         self.scrollbar_y = tk.Scrollbar(self, orient="vertical", command=self.main_text_box.yview)
         self.scrollbar_x = tk.Scrollbar(self, orient="horizontal", command=self.main_text_box.xview)
         self.main_text_box.configure(yscrollcommand=self.scrollbar_y.set, xscrollcommand=self.scrollbar_x.set,
@@ -65,22 +78,94 @@ class LogFrame(tk.Frame):
         self.main_text_box.configure(state="disabled")
 
 
+class RouteSelection(tk.Frame):
+    def __init__(self, application, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.application = application
+
+        # Row 0
+        self.route_calculator_lbl = tk.Label(self, text="Route Calculator")
+        self.route_calculator_lbl.grid(row=0, column=0, padx=3, pady=3, sticky="W")
+
+        # Row 1
+        self.from_lbl = tk.Label(self, text="From:")
+        self.from_lbl.grid(row=1, column=0, padx=3, pady=3, sticky="E")
+
+        self.from_entry = tk.Entry(self)
+        self.from_entry.grid(row=1, column=1, padx=3, pady=3)
+
+        # Row 2
+        self.to_lbl = tk.Label(self, text="To:")
+        self.to_lbl.grid(row=2, column=0, padx=3, pady=3, sticky="E")
+
+        self.to_entry = tk.Entry(self)
+        self.to_entry.grid(row=2, column=1, padx=3, pady=3)
+
+        # Row 3
+        self.efficiency_lbl = tk.Label(self, text="Efficiency:")
+        self.efficiency_lbl.grid(row=3, column=0, padx=3, pady=3, sticky="E")
+
+        self.efficiency_entry = tk.Entry(self)
+        self.efficiency_entry.insert(0, "60")
+        self.efficiency_entry.grid(row=3, column=1, padx=3, pady=3)
+
+        # Row 4
+        self.jump_range_lbl = tk.Label(self, text="Jump Range:")
+        self.jump_range_lbl.grid(row=4, column=0, padx=3, pady=3, sticky="E")
+
+        self.jump_range_entry = tk.Entry(self)
+        self.jump_range_entry.grid(row=4, column=1, padx=3, pady=3)
+
+        self.calculate_button = tk.Button(self, text="Calculate", command=self.on_calculate_button)
+        self.calculate_button.grid(row=4, column=2, padx=3, pady=3)
+
+    def on_calculate_button(self):
+        # Get values from ui
+        from_system = self.from_entry.get()
+        to_system = self.to_entry.get()
+        try:
+            efficiency = int(self.efficiency_entry.get())
+            jump_range = float(self.jump_range_entry.get())
+        except ValueError:
+            self.application.print_log("Invalid input")
+            return
+
+        if from_system and to_system and efficiency and jump_range:
+            route_systems = self.application.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system)
+            self.application.configuration["route"] = route_systems
+            self.application.write_config()
+
+        else:
+            self.application.print_log("Missing information")
+
+
 class MainApplication(tk.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Put together UI elements
+        # UI elements
         self.status_information_frame = StatusInformation(self)
-        self.status_information_frame.pack(side="top", fill="x")
+        self.status_information_frame.grid(row=0, column=0, sticky="W")
+
+        self.run_control = RunControl(self, self)
+        self.run_control.grid(row=0, column=1, sticky="W")
 
         self.log_frame = LogFrame(self)
-        self.log_frame.pack(side="bottom", fill="x")
+        self.log_frame.grid(row=1, column=0, columnspan=2)
+
+        self.route_selection = RouteSelection(self, self)
+        self.route_selection.grid(row=2, column=0, sticky="W")
 
         # Setting variables
         self.verbose = False
         self.config_path = os.path.join(os.getenv("APPDATA"), "EDNeutronAssistant")
         self.log_file_path = os.path.join(self.config_path, "logs",
                                           f"EDNeutronAssistant-{time.strftime('%Y-%m-%d')}.log")
+
+        self.configuration = {}
+        self.read_config()
+        self.configuration["status"] = "stopped"
 
         # Creating working directory
         if not os.path.isdir(self.config_path):
@@ -94,15 +179,10 @@ class MainApplication(tk.Frame):
         # Parse game log
         self.game_log = self.parse_game_log()
 
-        # Get commander name
         self.commander_name = self.get_commander_name(self.game_log)
-
-        # Get current system
-        self.current_system = self.get_current_system(self.game_log)
-
-        # Set status information
         self.status_information_frame.update_cmdr_lbl(self.commander_name)
-        self.status_information_frame.update_current_system_lbl(self.current_system)
+
+        self.update_current_system()
 
         self.print_log("Initialization complete")
 
@@ -127,6 +207,25 @@ class MainApplication(tk.Frame):
         except FileNotFoundError:
             pass
 
+    def read_config(self):
+        """Read config from the configuration file"""
+        try:
+            self.configuration = json.load(open(self.config_path + "\\config.json", "r"))
+        except FileNotFoundError:
+            pass
+
+    def write_config(self):
+        """Writes the current configuration to the config file"""
+        with open(self.config_path + "\\config.json", "w") as f:
+            json.dump(self.configuration, f, indent=2)
+        self.print_log("Saved configuration to file")
+
+    def update_current_system(self):
+        current_system = self.get_current_system(self.game_log)
+        self.status_information_frame.update_current_system_lbl(current_system)
+        self.route_selection.from_entry.delete(0, "end")
+        self.route_selection.from_entry.insert(0, current_system)
+
     def parse_game_log(self) -> list:
         """Parses the Elite: Dangerous logfiles to retrieve information about the game"""
 
@@ -146,7 +245,7 @@ class MainApplication(tk.Frame):
                 self.print_log("Searching game log directory")
 
             if not os.path.isdir(file_directory):
-                self.print_log("game logs not found, aborting")
+                self.print_log("Game logs not found")
                 return []
 
             if self.verbose:
@@ -165,7 +264,7 @@ class MainApplication(tk.Frame):
                 self.print_log(f"Found newest log file {newest_log_file}")
 
             # Read log file
-            print(f"Reading log file {newest_log_file}")
+            self.print_log(f"Reading log file {newest_log_file}")
             with open(newest_log_file, "r") as f:
                 all_entries = f.readlines()
 
@@ -176,7 +275,7 @@ class MainApplication(tk.Frame):
             return entries_parsed
 
         else:
-            self.print_log("Installed OS is not supported, aborting")
+            self.print_log("Installed OS is not supported")
             return []
 
     def get_current_system(self, entries_parsed: list) -> str:
@@ -289,6 +388,23 @@ class MainApplication(tk.Frame):
 
         return min(all_distances, key=all_distances.get)
 
+    def get_next_route_system(self, route: list, current_system: str) -> str:
+
+        route_systems = []
+        for entry in route:
+            route_systems.append(entry["system"])
+
+        next_system = ""
+
+        if current_system in route_systems:
+            try:
+                next_system = route_systems[route_systems.index(current_system) + 1]
+                self.print_log(f"Found next system: {next_system}")
+            except IndexError:
+                pass
+
+        return next_system
+
     def copy_system_to_clipboard(self, system: str):
         """Copy a system into the commanders clipboard"""
         clipboard.copy(system)
@@ -299,6 +415,9 @@ class MainApplication(tk.Frame):
 
         self.print_log(f"Calculating route from {start_system} to {end_system} with efficiency {efficiency} and jump "
                        f"range {ship_range}")
+
+        if not os.path.isdir(self.config_path + "\\routes"):
+            os.mkdir(self.config_path + "\\routes")
 
         filename = f"{self.config_path}\\routes\\NeutronAssistantRoute-{efficiency}-{ship_range}-" \
                    f"{start_system.replace(' ', '_')}-{end_system.replace(' ', '_')}.json"
@@ -342,9 +461,9 @@ class MainApplication(tk.Frame):
 
 if __name__ == '__main__':
     root = tk.Tk()
+    root.resizable(False, False)
 
     ed_neutron_assistant = MainApplication(root)
-    ed_neutron_assistant.pack(fill="both", expand=True)
-    ed_neutron_assistant.config(width=400, height=500)
+    ed_neutron_assistant.pack(fill="both")
 
     root.mainloop()
