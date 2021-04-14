@@ -5,6 +5,7 @@ import threading
 import requests
 import tkinter as tk
 import clipboard
+import json
 
 VERBOSE = False
 
@@ -18,6 +19,10 @@ def print_log(*args, **kwargs):
     #         print(t, *args, **kwargs, file=file)
     #     except UnicodeEncodeError:
     #         print_log("Error writing log entry")
+
+
+def convert_json_str_to_dict(json_str: str) -> dict:
+    return json.loads(json_str)
 
 
 def parse_game_log() -> list:
@@ -50,7 +55,7 @@ def parse_game_log() -> list:
 
         entries_parsed = []
         for entry in all_entries:
-            entries_parsed.append(eval(entry.replace("true", "True").replace("false", "False")))
+            entries_parsed.append(convert_json_str_to_dict(entry))
 
         print_log("..done")
 
@@ -136,7 +141,7 @@ def get_distance_between_systems(system1: str, system2: str) -> float:
         response = requests.get(f"https://www.edsm.net/api-v1/system?systemName={system.replace(' ', '%20')}"
                                 f"&showCoordinates=1")
 
-        return eval(response.text.replace("true", "True").replace("false", "False"))["coords"]
+        return convert_json_str_to_dict(response.text)["coords"]
 
     s1coordinates = get_coordinates(system1)
     s2coordinates = get_coordinates(system2)
@@ -190,7 +195,7 @@ def calc_simple_neutron_route(efficiency: int, ship_range: float,  start_system:
         # Wait for job completion
         while 1:
             response = session.get("https://www.spansh.co.uk/api/results/" + job["job"])
-            response_dict = eval(response.text.replace("true", "True").replace("false", "False"))
+            response_dict = convert_json_str_to_dict(response.text)
             if response_dict["status"] == "ok":
                 print_log("..Route successfully recieved")
                 break
@@ -215,11 +220,20 @@ def calc_simple_neutron_route(efficiency: int, ship_range: float,  start_system:
 
 if __name__ == '__main__':
 
+    # Creating working directory
     APPDATA = os.getenv("APPDATA")
     CONFIG_PATH = os.path.join(APPDATA, "EDNeutronAssistant")
+
+    print_log(f"Looking for working directory at {CONFIG_PATH}..")
+
     if not os.path.isdir(CONFIG_PATH):
+        print_log("..Directory not found, creating..")
         os.mkdir(CONFIG_PATH)
-    calc_simple_neutron_route(60, 80, "Sol", "Colonia")
+    else:
+        print_log("..Found existing working directory")
+
+    # testing
+    # calc_simple_neutron_route(60, 80, "Sol", "Colonia")
 
     # Tkinter UI
     root = tk.Tk()
