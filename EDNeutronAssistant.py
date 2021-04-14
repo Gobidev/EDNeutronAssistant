@@ -7,8 +7,6 @@ import tkinter as tk
 import clipboard
 import json
 
-VERBOSE = False
-
 
 def print_log(*args, **kwargs):
     """Print content to file and console along with a timestamp. Has the exact same syntax as print()"""
@@ -217,29 +215,35 @@ def calc_simple_neutron_route(efficiency: int, ship_range: float,  start_system:
 
     return systems
 
+class MainApplication(tk.Frame):
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        self.grid_propagate(False)
+
+        self.default_padding = 3
+
+
+# Setting global variables
+VERBOSE = False
+CONFIG_PATH = os.path.join(os.getenv("APPDATA"), "EDNeutronAssistant")
+
+# Creating working directory
+print_log(f"Looking for working directory at {CONFIG_PATH}..")
+
+if not os.path.isdir(CONFIG_PATH):
+    print_log("..Directory not found, creating..")
+    os.mkdir(CONFIG_PATH)
+else:
+    print_log("..Found existing working directory")
+
 
 if __name__ == '__main__':
 
-    # Creating working directory
-    APPDATA = os.getenv("APPDATA")
-    CONFIG_PATH = os.path.join(APPDATA, "EDNeutronAssistant")
+    main_window = tk.Tk()
+    ui = MainApplication(main_window)
+    ui.pack(fill="both", expand=True)
+    ui.config(width=400, height=500)
 
-    print_log(f"Looking for working directory at {CONFIG_PATH}..")
-
-    if not os.path.isdir(CONFIG_PATH):
-        print_log("..Directory not found, creating..")
-        os.mkdir(CONFIG_PATH)
-    else:
-        print_log("..Found existing working directory")
-
-    # testing
-    # calc_simple_neutron_route(60, 80, "Sol", "Colonia")
-
-    # Tkinter UI
-    root = tk.Tk()
-
-    # Row 0
-    commander_name_label = tk.Label(root, text="Commander:")
-    commander_name_label.grid(row=0, column=0, padx=3, pady=3)
-
-    root.mainloop()
+    main_window.mainloop()
