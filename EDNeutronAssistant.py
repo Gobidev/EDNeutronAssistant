@@ -16,16 +16,16 @@ class StatusInformation(tk.Frame):
         self.cmdr_lbl.grid(row=0, column=0, padx=3, pady=3, sticky="E")
 
         self.cmdr_lbl_content = tk.Label(self, text="")
-        self.cmdr_lbl_content.grid(row=0, column=1, padx=3, pady=3)
+        self.cmdr_lbl_content.grid(row=0, column=1, padx=3, pady=3, sticky="W")
 
         # Row 1
         self.current_system_lbl = tk.Label(self, text="Current System:")
         self.current_system_lbl.grid(row=1, column=0, padx=3, pady=3, sticky="E")
 
         self.current_system_lbl_content = tk.Label(self, text="")
-        self.current_system_lbl_content.grid(row=1, column=1, padx=3, pady=3)
+        self.current_system_lbl_content.grid(row=1, column=1, padx=3, pady=3, sticky="W")
 
-        self.progress_lbl = tk.Label(self, text="[0/0]")
+        self.progress_lbl = tk.Label(self, text="")
         self.progress_lbl.grid(row=1, column=2, padx=3, pady=3)
 
         # Row 2
@@ -33,7 +33,7 @@ class StatusInformation(tk.Frame):
         self.next_system_lbl.grid(row=2, column=0, padx=3, pady=3, sticky="E")
 
         self.next_system_lbl_content = tk.Label(self, text="")
-        self.next_system_lbl_content.grid(row=2, column=1, padx=3, pady=3)
+        self.next_system_lbl_content.grid(row=2, column=1, padx=3, pady=3, sticky="W")
 
         self.distance_lbl = tk.Label(self, text="")
         self.distance_lbl.grid(row=2, column=2, padx=3, pady=3)
@@ -53,11 +53,18 @@ class StatusInformation(tk.Frame):
     def update_next_system_lbl(self, new_system: str, distance: float, jumps: int, is_neutron: bool):
         self.next_system_lbl_content.configure(text=new_system)
         self.distance_lbl.configure(text=f"{distance} ly")
-        self.jumps_lbl.configure(text=f"{jumps} Jumps")
-        self.is_neutron_star_lbl.configure(text=f"N: {'yes' if is_neutron else 'no'}")
+        self.jumps_lbl.configure(text=f"({jumps} Jumps)")
+        self.is_neutron_star_lbl.configure(text=f"Neutron: {'yes' if is_neutron else 'no'}")
 
     def update_progress_lbl(self, current, total):
         self.progress_lbl.configure(text=f"[{current}/{total}]")
+
+    def reset_information(self):
+        self.next_system_lbl_content.configure(text="")
+        self.distance_lbl.configure(text="")
+        self.jumps_lbl.configure(text="")
+        self.is_neutron_star_lbl.configure(text="")
+        self.progress_lbl.configure(text="")
 
 
 class RunControl(tk.Frame):
@@ -66,11 +73,20 @@ class RunControl(tk.Frame):
 
         self.application = application
 
-        self.run_control_button = tk.Button(self, text="Run", height=2, width=10, command=self.on_run_control_button)
+        self.run_control_button = tk.Button(self, text="Auto Copy", height=2, width=10, state="disabled",
+                                            command=self.on_run_control_button)
         self.run_control_button.pack(fill="both")
 
     def on_run_control_button(self):
-        pass
+        if self.application.configuration["status"] == "stopped":
+            self.run_control_button.configure(text="Stop")
+            self.application.configuration["status"] = "running"
+            self.application.print_log("Started auto copy")
+        else:
+            self.application.configuration["status"] = "stopped"
+            self.run_control_button.configure(text="Auto Copy")
+            self.application.print_log("Stopped auto copy")
+            self.application.configuration["last_copied"] = ""
 
 
 class LogFrame(tk.Frame):
@@ -150,9 +166,15 @@ class RouteSelection(tk.Frame):
             self.calculate_button.configure(state="normal")
             return
 
+        if not (from_system and to_system):
+            self.application.print_log("Invalid input")
+            self.calculate_button.configure(state="normal")
+            return
+
         route_systems = self.application.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system)
-        self.application.print_log(f"Successfully loaded {len(route_systems)} systems")
+        self.application.print_log(f"Loaded route of {len(route_systems)} systems")
         self.application.configuration["route"] = route_systems
+        self.application.configuration["current_system"] = ""
         self.application.write_config()
         self.application.update_route()
 
@@ -163,8 +185,10 @@ class RouteSelection(tk.Frame):
 
 
 class MainApplication(tk.Frame):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, parent_window, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.parent_window = parent_window
 
         # UI elements
         self.status_information_frame = StatusInformation(self)
@@ -181,6 +205,7 @@ class MainApplication(tk.Frame):
 
         # Setting variables
         self.verbose = False
+        self.poll_rate = 1
         self.config_path = os.path.join(os.getenv("APPDATA"), "EDNeutronAssistant")
         self.log_file_path = os.path.join(self.config_path, "logs",
                                           f"EDNeutronAssistant-{time.strftime('%Y-%m-%d')}.log")
@@ -188,6 +213,9 @@ class MainApplication(tk.Frame):
         self.configuration = {}
         self.read_config()
         self.configuration["status"] = "stopped"
+        self.configuration["last_copied"] = ""
+        self.configuration["current_system"] = ""
+        self.configuration["ship_range"] = 0
 
         # Creating working directory
         if not os.path.isdir(self.config_path):
@@ -198,17 +226,12 @@ class MainApplication(tk.Frame):
         # --- Running initialization ---
         self.print_log("Initializing")
 
-        # Parse game log
-        self.game_log = self.parse_game_log()
+        game_log = self.parse_game_log()
+        self.configuration["last_current_system"] = self.get_current_system(game_log)
+        threading.Thread(target=self.application_loop).start()
 
-        self.commander_name = self.get_commander_name(self.game_log)
-        self.status_information_frame.update_cmdr_lbl(self.commander_name)
-
-        self.update_current_system()
-
-        if self.configuration["route"]:
-            self.print_log("Found existing route, loading")
-            self.update_route()
+        if "route" in self.configuration and self.configuration["route"]:
+            self.print_log("Found existing route")
 
         self.print_log("Initialization complete")
 
@@ -247,11 +270,16 @@ class MainApplication(tk.Frame):
         if self.verbose:
             self.print_log("Saved configuration to file")
 
-    def update_current_system(self):
-        current_system = self.get_current_system(self.game_log)
+    def update_current_system(self, current_system: str):
+        """Update ui elements with a new current system"""
+
         self.status_information_frame.update_current_system_lbl(current_system)
         self.route_selection.from_entry.delete(0, "end")
         self.route_selection.from_entry.insert(0, current_system)
+
+        if current_system != self.configuration["last_current_system"] and current_system:
+            self.print_log(f"Entered system {current_system}")
+            self.configuration["last_current_system"] = current_system
 
     def parse_game_log(self) -> list:
         """Parses the Elite: Dangerous logfiles to retrieve information about the game"""
@@ -281,11 +309,12 @@ class MainApplication(tk.Frame):
             all_files = [file_directory + "\\" + n for n in os.listdir(file_directory)]
 
             # Filter files that are no logs
+            journal_files = []
             for file in all_files:
-                if not file.startswith("Journal"):
-                    del all_files[all_files.index(file)]
+                if "Journal" in file:
+                    journal_files.append(file)
 
-            newest_log_file = max(all_files, key=os.path.getctime)
+            newest_log_file = max(journal_files, key=os.path.getctime)
 
             if self.verbose:
                 self.print_log(f"Found newest log file {newest_log_file}")
@@ -353,6 +382,30 @@ class MainApplication(tk.Frame):
 
         return commander_name
 
+    def get_ship_range(self, entries_parsed: list) -> float:
+        """Parse log file for ship jump range"""
+
+        if self.verbose:
+            self.print_log("Looking for ship jump range")
+
+        jump_range = 0
+
+        all_ranges = []
+        for entry in entries_parsed:
+            if entry["event"] == "Loadout":
+                all_ranges.append(float(entry["MaxJumpRange"]))
+
+        if len(all_ranges):
+            jump_range = all_ranges[-1]
+
+        if self.verbose:
+            if jump_range:
+                self.print_log(f"Found jump range {jump_range}")
+            else:
+                self.print_log("No jump range found")
+
+        return round(.95 * jump_range, 2)
+
     def parse_plotter_csv(self, filename: str) -> list:
         """Parse a file that was created with the spansh plotter, probably not used in final version"""
 
@@ -375,19 +428,22 @@ class MainApplication(tk.Frame):
     def get_distance_between_systems(self, system1: str, system2: str) -> float:
         """Calculate the distance between two systems using the EDSM API"""
 
-        self.print_log(f"Calculating distance between systems {system1} and {system2}")
+        if self.verbose:
+            self.print_log(f"Calculating distance between systems {system1} and {system2}")
 
         def get_coordinates(system: str) -> dict:
             """Retrieve the coordinates of a system from the EDSM API"""
 
-            self.print_log(f"Retrieving coordinates of system {system} from EDSM API")
+            if self.verbose:
+                self.print_log(f"Retrieving coordinates of system {system} from EDSM API")
 
             response = requests.get(f"https://www.edsm.net/api-v1/system?systemName={system.replace(' ', '%20')}"
                                     f"&showCoordinates=1")
 
             coordinates = json.loads(response.text)["coords"]
 
-            self.print_log(f"Coordinates of system {system} are {coordinates}")
+            if self.verbose:
+                self.print_log(f"Coordinates of system {system} are {coordinates}")
 
             return coordinates
 
@@ -398,7 +454,8 @@ class MainApplication(tk.Frame):
             ((s2coordinates["x"] - s1coordinates["x"]) ** 2 + (s2coordinates["y"] - s1coordinates["y"]) ** 2 +
              (s2coordinates["z"] - s1coordinates["z"]) ** 2) ** (1 / 2), 2)
 
-        self.print_log(f"Distance between systems {system1} and {system2} is {distance}")
+        if self.verbose:
+            self.print_log(f"Distance between systems {system1} and {system2} is {distance}")
 
         return distance
 
@@ -432,17 +489,36 @@ class MainApplication(tk.Frame):
             index_current_system = route_systems.index(current_system)
             try:
                 next_system = route_systems[index_current_system + 1]
-                self.print_log(f"Found next system: {next_system}")
+                if self.verbose:
+                    self.print_log(f"Found next system: {next_system}")
             except IndexError:
                 pass
 
-        if next_system:
-            distance_current_system = plotter_data[index_current_system]["distance_jumped"]
-            distance_next_system = plotter_data[index_current_system + 1]["distance_jumped"]
-            next_system_jumps = plotter_data[index_current_system + 1]["jumps"]
-            next_system_is_neutron = plotter_data[index_current_system + 1]["neutron_star"]
+        if next_system or "next_system" in self.configuration and self.configuration["next_system"] != current_system:
+            if next_system:
+                self.configuration["next_system"] = next_system
+                self.write_config()
+                distance_current_system = plotter_data[index_current_system]["distance_jumped"]
+                distance_next_system = plotter_data[index_current_system + 1]["distance_jumped"]
+                next_system_jumps = plotter_data[index_current_system + 1]["jumps"]
+                distance = round(distance_next_system - distance_current_system, 2)
+            else:
+                next_system = self.configuration["next_system"]
+                jump_range = self.get_ship_range(self.parse_game_log())
 
-            distance = round(distance_next_system - distance_current_system, 2)
+                systems_string = f"{current_system}__{next_system}"
+                if "last_distance" in self.configuration and self.configuration["last_distance"][0] == systems_string:
+                    distance = self.configuration["last_distance"][1]
+                else:
+                    distance = self.get_distance_between_systems(current_system, next_system)
+                    self.configuration["last_distance"] = systems_string, distance
+                    self.write_config()
+
+                next_system_jumps = int(round(distance / jump_range, 0))
+                if next_system_jumps * jump_range < distance:
+                    next_system_jumps += 1
+
+            next_system_is_neutron = plotter_data[index_current_system + 1]["neutron_star"]
 
         return next_system, index_current_system + 1, total_systems, distance, next_system_jumps, next_system_is_neutron
 
@@ -475,7 +551,7 @@ class MainApplication(tk.Frame):
             self.print_log("Request sent, waiting for completion")
 
             if "error" in job:
-                self.print_log(f"Error occurred: {job['error']}")
+                self.print_log(f"ERROR OCCURRED: {job['error']}")
                 return []
 
             # Wait for job completion
@@ -510,13 +586,61 @@ class MainApplication(tk.Frame):
 
         plotter_data = self.configuration["route"]
         current_system = self.get_current_system(parsed_game_log)
+
         next_system, index_current, total_systems, distance, jumps, is_neutron =\
             self.get_next_route_system(plotter_data, current_system)
 
+        if next_system == current_system or not next_system:
+            del self.configuration["route"]
+            self.print_log("Route completed")
+            self.write_config()
+
         # Update status information
-        self.status_information_frame.update_current_system_lbl(current_system)
-        self.status_information_frame.update_next_system_lbl(next_system, distance, jumps, is_neutron)
-        self.status_information_frame.update_progress_lbl(index_current, total_systems)
+        self.update_current_system(current_system)
+        if next_system:
+            self.status_information_frame.update_next_system_lbl(next_system, distance, jumps, is_neutron)
+            self.status_information_frame.update_progress_lbl(index_current, total_systems)
+
+            if self.configuration["last_copied"] != next_system and self.configuration["status"] == "running":
+                self.copy_system_to_clipboard(next_system)
+                self.configuration["last_copied"] = next_system
+        else:
+            self.status_information_frame.reset_information()
+
+    def application_loop(self):
+        while 1:
+            try:
+                game_log = self.parse_game_log()
+                commander_name = self.get_commander_name(game_log)
+                self.status_information_frame.update_cmdr_lbl(commander_name)
+
+                ship_range = self.get_ship_range(game_log)
+                if not ("ship_range" in self.configuration and self.configuration["ship_range"] == ship_range):
+                    self.route_selection.jump_range_entry.delete(0, "end")
+                    self.route_selection.jump_range_entry.insert(0, str(ship_range) if ship_range else "")
+                    self.configuration["ship_range"] = ship_range
+
+                if "route" in self.configuration and self.configuration["route"]:
+
+                    self.run_control.run_control_button.configure(state="normal")
+                    self.update_route()
+                else:
+                    self.run_control.run_control_button.configure(state="disabled")
+                    current_system = self.get_current_system(game_log)
+
+                    self.update_current_system(current_system)
+
+            except RuntimeError:
+                return
+
+            if self.configuration["status"] == "exited":
+                break
+
+            time.sleep(self.poll_rate)
+
+    def terminate(self):
+        self.configuration["status"] = "exited"
+        self.parent_window.destroy()
 
 
 if __name__ == '__main__':
@@ -524,7 +648,9 @@ if __name__ == '__main__':
     root.resizable(False, False)
     root.title("EDNeutronAssistant")
 
-    ed_neutron_assistant = MainApplication(root)
+    ed_neutron_assistant = MainApplication(root, root)
     ed_neutron_assistant.pack(fill="both")
+
+    root.protocol("WM_DELETE_WINDOW", ed_neutron_assistant.terminate)
 
     root.mainloop()
