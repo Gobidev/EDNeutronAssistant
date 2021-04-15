@@ -23,26 +23,34 @@ class StatusInformation(tk.Frame):
         self.current_system_lbl.grid(row=1, column=0, padx=3, pady=3, sticky="E")
 
         self.current_system_lbl_content = tk.Label(self, text="")
-        self.current_system_lbl_content.grid(row=1, column=1, padx=3, pady=3, sticky="W")
-
-        self.progress_lbl = tk.Label(self, text="")
-        self.progress_lbl.grid(row=1, column=2, padx=3, pady=3)
+        self.current_system_lbl_content.grid(row=1, column=1, columnspan=3, padx=3, pady=3, sticky="W")
 
         # Row 2
+        self.progress_lbl = tk.Label(self, text="Progress:")
+        self.progress_lbl.grid(row=2, column=0, padx=3, pady=3, sticky="E")
+
+        self.progress_lbl_content = tk.Label(self, text="")
+        self.progress_lbl_content.grid(row=2, column=1, padx=3, pady=3, sticky="W")
+
+        # Row 3
         self.next_system_lbl = tk.Label(self, text="Next System:")
-        self.next_system_lbl.grid(row=2, column=0, padx=3, pady=3, sticky="E")
+        self.next_system_lbl.grid(row=3, column=0, padx=3, pady=3, sticky="E")
 
         self.next_system_lbl_content = tk.Label(self, text="")
-        self.next_system_lbl_content.grid(row=2, column=1, padx=3, pady=3, sticky="W")
+        self.next_system_lbl_content.grid(row=3, column=1, padx=3, pady=3, sticky="W")
+
+        # Row 4
+        self.next_system_information_lbl = tk.Label(self, text="System Information:")
+        self.next_system_information_lbl.grid(row=4, column=0, padx=3, pady=3, sticky="E")
 
         self.distance_lbl = tk.Label(self, text="")
-        self.distance_lbl.grid(row=2, column=2, padx=3, pady=3)
+        self.distance_lbl.grid(row=4, column=1, padx=3, pady=3)
 
         self.jumps_lbl = tk.Label(self, text="")
-        self.jumps_lbl.grid(row=2, column=3, padx=3, pady=3)
+        self.jumps_lbl.grid(row=4, column=2, padx=3, pady=3)
 
         self.is_neutron_star_lbl = tk.Label(self, text="")
-        self.is_neutron_star_lbl.grid(row=2, column=4, padx=3, pady=3)
+        self.is_neutron_star_lbl.grid(row=4, column=3, padx=3, pady=3)
 
     def update_cmdr_lbl(self, new_name: str):
         self.cmdr_lbl_content.configure(text=new_name)
@@ -53,18 +61,18 @@ class StatusInformation(tk.Frame):
     def update_next_system_lbl(self, new_system: str, distance: float, jumps: int, is_neutron: bool):
         self.next_system_lbl_content.configure(text=new_system)
         self.distance_lbl.configure(text=f"{distance} ly")
-        self.jumps_lbl.configure(text=f"({jumps} Jumps)")
+        self.jumps_lbl.configure(text=f"{jumps} Jumps")
         self.is_neutron_star_lbl.configure(text=f"Neutron: {'yes' if is_neutron else 'no'}")
 
     def update_progress_lbl(self, current, total):
-        self.progress_lbl.configure(text=f"[{current}/{total}]")
+        self.progress_lbl_content.configure(text=f"[{current}/{total}]")
 
     def reset_information(self):
         self.next_system_lbl_content.configure(text="")
         self.distance_lbl.configure(text="")
         self.jumps_lbl.configure(text="")
         self.is_neutron_star_lbl.configure(text="")
-        self.progress_lbl.configure(text="")
+        self.progress_lbl_content.configure(text="")
 
 
 class RunControl(tk.Frame):
@@ -214,8 +222,9 @@ class MainApplication(tk.Frame):
         self.read_config()
         self.configuration["status"] = "stopped"
         self.configuration["last_copied"] = ""
-        self.configuration["current_system"] = ""
+        self.configuration["last_current_system"] = ""
         self.configuration["ship_range"] = 0
+        self.configuration["commander_name"] = ""
 
         # Creating working directory
         if not os.path.isdir(self.config_path):
@@ -227,7 +236,6 @@ class MainApplication(tk.Frame):
         self.print_log("Initializing")
 
         game_log = self.parse_game_log()
-        self.configuration["last_current_system"] = self.get_current_system(game_log)
         threading.Thread(target=self.application_loop).start()
 
         if "route" in self.configuration and self.configuration["route"]:
@@ -273,13 +281,13 @@ class MainApplication(tk.Frame):
     def update_current_system(self, current_system: str):
         """Update ui elements with a new current system"""
 
-        self.status_information_frame.update_current_system_lbl(current_system)
-        self.route_selection.from_entry.delete(0, "end")
-        self.route_selection.from_entry.insert(0, current_system)
-
         if current_system != self.configuration["last_current_system"] and current_system:
             self.print_log(f"Entered system {current_system}")
             self.configuration["last_current_system"] = current_system
+
+            self.route_selection.from_entry.delete(0, "end")
+            self.route_selection.from_entry.insert(0, current_system)
+            self.status_information_frame.update_current_system_lbl(current_system)
 
     def parse_game_log(self) -> list:
         """Parses the Elite: Dangerous logfiles to retrieve information about the game"""
@@ -404,7 +412,9 @@ class MainApplication(tk.Frame):
             else:
                 self.print_log("No jump range found")
 
-        return round(.95 * jump_range, 2)
+        final_range = round(.95 * jump_range, 2)
+
+        return final_range
 
     def parse_plotter_csv(self, filename: str) -> list:
         """Parse a file that was created with the spansh plotter, probably not used in final version"""
@@ -427,6 +437,9 @@ class MainApplication(tk.Frame):
 
     def get_distance_between_systems(self, system1: str, system2: str) -> float:
         """Calculate the distance between two systems using the EDSM API"""
+
+        if not (system1 and system2):
+            return 0
 
         if self.verbose:
             self.print_log(f"Calculating distance between systems {system1} and {system2}")
@@ -514,7 +527,10 @@ class MainApplication(tk.Frame):
                     self.configuration["last_distance"] = systems_string, distance
                     self.write_config()
 
-                next_system_jumps = int(round(distance / jump_range, 0))
+                if jump_range != 0:
+                    next_system_jumps = int(round(distance / jump_range, 0))
+                else:
+                    next_system_jumps = 0
                 if next_system_jumps * jump_range < distance:
                     next_system_jumps += 1
 
@@ -611,13 +627,22 @@ class MainApplication(tk.Frame):
         while 1:
             try:
                 game_log = self.parse_game_log()
+
                 commander_name = self.get_commander_name(game_log)
-                self.status_information_frame.update_cmdr_lbl(commander_name)
+                if not ("commander_name" in self.configuration and self.configuration["commander_name"] ==
+                        commander_name) and commander_name:
+                    self.status_information_frame.update_cmdr_lbl(commander_name)
+                    self.configuration["commander_name"] = commander_name
+                    self.write_config()
+
+                    self.print_log(f"Found commander {commander_name}")
 
                 ship_range = self.get_ship_range(game_log)
-                if not ("ship_range" in self.configuration and self.configuration["ship_range"] == ship_range):
+                if not ("ship_range" in self.configuration and self.configuration["ship_range"] == ship_range)\
+                        and ship_range:
                     self.route_selection.jump_range_entry.delete(0, "end")
                     self.route_selection.jump_range_entry.insert(0, str(ship_range) if ship_range else "")
+                    self.print_log(f"Found ship jump range {ship_range} LY")
                     self.configuration["ship_range"] = ship_range
 
                 if "route" in self.configuration and self.configuration["route"]:
@@ -625,7 +650,7 @@ class MainApplication(tk.Frame):
                     self.run_control.run_control_button.configure(state="normal")
                     self.update_route()
                 else:
-                    self.run_control.run_control_button.configure(state="disabled")
+                    self.run_control.run_control_button.configure(state="disabled", text="Auto Copy")
                     current_system = self.get_current_system(game_log)
 
                     self.update_current_system(current_system)
