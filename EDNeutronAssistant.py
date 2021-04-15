@@ -4,6 +4,7 @@ import requests
 import tkinter as tk
 import clipboard
 import json
+import threading
 
 
 class StatusInformation(tk.Frame):
@@ -24,7 +25,7 @@ class StatusInformation(tk.Frame):
         self.current_system_lbl_content = tk.Label(self, text="")
         self.current_system_lbl_content.grid(row=1, column=1, padx=3, pady=3)
 
-        self.progress_lbl = tk.Label(self, text="[?/?]")
+        self.progress_lbl = tk.Label(self, text="[0/0]")
         self.progress_lbl.grid(row=1, column=2, padx=3, pady=3)
 
         # Row 2
@@ -34,14 +35,29 @@ class StatusInformation(tk.Frame):
         self.next_system_lbl_content = tk.Label(self, text="")
         self.next_system_lbl_content.grid(row=2, column=1, padx=3, pady=3)
 
+        self.distance_lbl = tk.Label(self, text="")
+        self.distance_lbl.grid(row=2, column=2, padx=3, pady=3)
+
+        self.jumps_lbl = tk.Label(self, text="")
+        self.jumps_lbl.grid(row=2, column=3, padx=3, pady=3)
+
+        self.is_neutron_star_lbl = tk.Label(self, text="")
+        self.is_neutron_star_lbl.grid(row=2, column=4, padx=3, pady=3)
+
     def update_cmdr_lbl(self, new_name: str):
         self.cmdr_lbl_content.configure(text=new_name)
 
     def update_current_system_lbl(self, new_system: str):
         self.current_system_lbl_content.configure(text=new_system)
 
-    def update_next_system_lbl(self, new_system: str):
+    def update_next_system_lbl(self, new_system: str, distance: float, jumps: int, is_neutron: bool):
         self.next_system_lbl_content.configure(text=new_system)
+        self.distance_lbl.configure(text=f"{distance} ly")
+        self.jumps_lbl.configure(text=f"{jumps} Jumps")
+        self.is_neutron_star_lbl.configure(text=f"N: {'yes' if is_neutron else 'no'}")
+
+    def update_progress_lbl(self, current, total):
+        self.progress_lbl.configure(text=f"[{current}/{total}]")
 
 
 class RunControl(tk.Frame):
@@ -61,7 +77,7 @@ class LogFrame(tk.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.main_text_box = tk.Text(self, height=10, width=50, wrap="none")
+        self.main_text_box = tk.Text(self, height=10, width=60, wrap="none")
         self.scrollbar_y = tk.Scrollbar(self, orient="vertical", command=self.main_text_box.yview)
         self.scrollbar_x = tk.Scrollbar(self, orient="horizontal", command=self.main_text_box.xview)
         self.main_text_box.configure(yscrollcommand=self.scrollbar_y.set, xscrollcommand=self.scrollbar_x.set,
@@ -120,7 +136,9 @@ class RouteSelection(tk.Frame):
         self.calculate_button = tk.Button(self, text="Calculate", command=self.on_calculate_button)
         self.calculate_button.grid(row=4, column=2, padx=3, pady=3)
 
-    def on_calculate_button(self):
+    def calculate_thread(self):
+        self.calculate_button.configure(state="disabled")
+
         # Get values from ui
         from_system = self.from_entry.get()
         to_system = self.to_entry.get()
@@ -129,15 +147,19 @@ class RouteSelection(tk.Frame):
             jump_range = float(self.jump_range_entry.get())
         except ValueError:
             self.application.print_log("Invalid input")
+            self.calculate_button.configure(state="normal")
             return
 
-        if from_system and to_system and efficiency and jump_range:
-            route_systems = self.application.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system)
-            self.application.configuration["route"] = route_systems
-            self.application.write_config()
+        route_systems = self.application.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system)
+        self.application.print_log(f"Successfully loaded {len(route_systems)} systems")
+        self.application.configuration["route"] = route_systems
+        self.application.write_config()
+        self.application.update_route()
 
-        else:
-            self.application.print_log("Missing information")
+        self.calculate_button.configure(state="normal")
+
+    def on_calculate_button(self):
+        threading.Thread(target=self.calculate_thread).start()
 
 
 class MainApplication(tk.Frame):
@@ -184,6 +206,10 @@ class MainApplication(tk.Frame):
 
         self.update_current_system()
 
+        if self.configuration["route"]:
+            self.print_log("Found existing route, loading")
+            self.update_route()
+
         self.print_log("Initialization complete")
 
     def print_log(self, *args):
@@ -218,7 +244,8 @@ class MainApplication(tk.Frame):
         """Writes the current configuration to the config file"""
         with open(self.config_path + "\\config.json", "w") as f:
             json.dump(self.configuration, f, indent=2)
-        self.print_log("Saved configuration to file")
+        if self.verbose:
+            self.print_log("Saved configuration to file")
 
     def update_current_system(self):
         current_system = self.get_current_system(self.game_log)
@@ -264,7 +291,8 @@ class MainApplication(tk.Frame):
                 self.print_log(f"Found newest log file {newest_log_file}")
 
             # Read log file
-            self.print_log(f"Reading log file {newest_log_file}")
+            if self.verbose:
+                self.print_log(f"Reading log file {newest_log_file}")
             with open(newest_log_file, "r") as f:
                 all_entries = f.readlines()
 
@@ -388,22 +416,35 @@ class MainApplication(tk.Frame):
 
         return min(all_distances, key=all_distances.get)
 
-    def get_next_route_system(self, route: list, current_system: str) -> str:
+    def get_next_route_system(self, plotter_data: list, current_system: str) -> (str, int, int, float, int, bool):
 
         route_systems = []
-        for entry in route:
+        for entry in plotter_data:
             route_systems.append(entry["system"])
 
+        total_systems = len(route_systems)
+
         next_system = ""
+        index_current_system, next_system_jumps, distance = 0, 0, 0
+        next_system_is_neutron = False
 
         if current_system in route_systems:
+            index_current_system = route_systems.index(current_system)
             try:
-                next_system = route_systems[route_systems.index(current_system) + 1]
+                next_system = route_systems[index_current_system + 1]
                 self.print_log(f"Found next system: {next_system}")
             except IndexError:
                 pass
 
-        return next_system
+        if next_system:
+            distance_current_system = plotter_data[index_current_system]["distance_jumped"]
+            distance_next_system = plotter_data[index_current_system + 1]["distance_jumped"]
+            next_system_jumps = plotter_data[index_current_system + 1]["jumps"]
+            next_system_is_neutron = plotter_data[index_current_system + 1]["neutron_star"]
+
+            distance = round(distance_next_system - distance_current_system, 2)
+
+        return next_system, index_current_system + 1, total_systems, distance, next_system_jumps, next_system_is_neutron
 
     def copy_system_to_clipboard(self, system: str):
         """Copy a system into the commanders clipboard"""
@@ -433,6 +474,10 @@ class MainApplication(tk.Frame):
 
             self.print_log("Request sent, waiting for completion")
 
+            if "error" in job:
+                self.print_log(f"Error occurred: {job['error']}")
+                return []
+
             # Wait for job completion
             while 1:
                 response = session.get("https://www.spansh.co.uk/api/results/" + job["job"])
@@ -458,10 +503,26 @@ class MainApplication(tk.Frame):
 
         return systems
 
+    def update_route(self):
+        """Update the progress of the current route"""
+
+        parsed_game_log = self.parse_game_log()
+
+        plotter_data = self.configuration["route"]
+        current_system = self.get_current_system(parsed_game_log)
+        next_system, index_current, total_systems, distance, jumps, is_neutron =\
+            self.get_next_route_system(plotter_data, current_system)
+
+        # Update status information
+        self.status_information_frame.update_current_system_lbl(current_system)
+        self.status_information_frame.update_next_system_lbl(next_system, distance, jumps, is_neutron)
+        self.status_information_frame.update_progress_lbl(index_current, total_systems)
+
 
 if __name__ == '__main__':
     root = tk.Tk()
     root.resizable(False, False)
+    root.title("EDNeutronAssistant")
 
     ed_neutron_assistant = MainApplication(root)
     ed_neutron_assistant.pack(fill="both")
