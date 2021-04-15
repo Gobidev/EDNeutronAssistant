@@ -11,6 +11,8 @@ crashes and bugs as I have not tested everything, yet. For the future, I plan to
 [Spansh Galaxy Plotter](https://www.spansh.co.uk/exact-plotter) and further improvements to the ui.
 
 # Usage
+Download the latest build from the [Releases Tab](https://github.com/Gobidev/EDNeutronAssistant/releases/).
+
 The usage of EDNeutronAssistant is very straight forward, as no other third party tools or programs are necessary. After
 starting the program, it should automatically detect information about the current game. By now, only the default game
 log path is supported.
