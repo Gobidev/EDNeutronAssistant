@@ -671,7 +671,7 @@ class MainApplication(tk.Frame):
 if __name__ == '__main__':
     root = tk.Tk()
     root.resizable(False, False)
-    root.title("EDNeutronAssistant")
+    root.title("EDNeutronAssistant v1.0-alpha")
 
     ed_neutron_assistant = MainApplication(root, root)
     ed_neutron_assistant.pack(fill="both")
