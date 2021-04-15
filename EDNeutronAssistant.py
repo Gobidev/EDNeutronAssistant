@@ -235,7 +235,6 @@ class MainApplication(tk.Frame):
         # --- Running initialization ---
         self.print_log("Initializing")
 
-        game_log = self.parse_game_log()
         threading.Thread(target=self.application_loop).start()
 
         if "route" in self.configuration and self.configuration["route"]:
