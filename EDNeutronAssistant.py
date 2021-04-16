@@ -219,7 +219,12 @@ class MainApplication(tk.Frame):
                                           f"EDNeutronAssistant-{time.strftime('%Y-%m-%d')}.log")
 
         self.configuration = {}
-        self.read_config()
+
+        try:
+            self.configuration = json.load(open(self.config_path + "\\config.json", "r"))
+        except FileNotFoundError:
+            pass
+
         self.configuration["status"] = "stopped"
         self.configuration["last_copied"] = ""
         self.configuration["last_current_system"] = ""
@@ -260,13 +265,6 @@ class MainApplication(tk.Frame):
 
             with open(self.log_file_path, "a") as f:
                 f.write(entry + "\n")
-        except FileNotFoundError:
-            pass
-
-    def read_config(self):
-        """Read config from the configuration file"""
-        try:
-            self.configuration = json.load(open(self.config_path + "\\config.json", "r"))
         except FileNotFoundError:
             pass
 
