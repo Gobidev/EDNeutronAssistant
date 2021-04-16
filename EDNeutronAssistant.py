@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import requests
 import tkinter as tk
@@ -667,8 +668,15 @@ class MainApplication(tk.Frame):
 
 if __name__ == '__main__':
     root = tk.Tk()
+
     root.resizable(False, False)
     root.title("EDNeutronAssistant v1.0-alpha")
+
+    icon_path = "logo.ico"
+    if hasattr(sys, "_MEIPASS"):
+        icon_path = os.path.join(sys._MEIPASS, icon_path)
+
+    root.iconbitmap(default=icon_path)
 
     ed_neutron_assistant = MainApplication(root, root)
     ed_neutron_assistant.pack(fill="both")
