@@ -181,13 +181,17 @@ class RouteSelection(tk.Frame):
             return
 
         route_systems = self.application.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system)
+
+        self.calculate_button.configure(state="normal")
+
+        if len(route_systems) == 0:
+            return
+
         self.application.print_log(f"Loaded route of {len(route_systems)} systems")
         self.application.configuration["route"] = route_systems
         self.application.configuration["current_system"] = ""
         self.application.write_config()
         self.application.update_route()
-
-        self.calculate_button.configure(state="normal")
 
     def on_calculate_button(self):
         threading.Thread(target=self.calculate_thread).start()
@@ -674,6 +678,7 @@ if __name__ == '__main__':
 
     icon_path = "logo.ico"
     if hasattr(sys, "_MEIPASS"):
+        # noinspection PyProtectedMember
         icon_path = os.path.join(sys._MEIPASS, icon_path)
 
     root.iconbitmap(default=icon_path)
