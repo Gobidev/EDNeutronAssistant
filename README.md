@@ -7,8 +7,8 @@ since then, I decided to rework the project from scratch rather than continuing 
 
 # Current State of Development
 This application is in comparison to its predecessor already in a very stable state, although there may still be some
-crashes and bugs as I have not tested everything, yet. For the future, I plan to implement support for the improved 
-[Spansh Galaxy Plotter](https://www.spansh.co.uk/exact-plotter) and further improvements to the ui.
+crashes and bugs as I have not yet tested everything. For the future, I plan to implement support for the improved 
+[Spansh Galaxy Plotter](https://www.spansh.co.uk/exact-plotter) and further improvements to the UI.
 
 # Usage
 Download the latest build from the [Releases Tab](https://github.com/Gobidev/EDNeutronAssistant/releases/).
@@ -18,7 +18,7 @@ starting the program, it should automatically detect information about the curre
 log path is supported.
 
 To calculate a neutron star route, simply fill in the required information at the bottom of the window and hit 
-calculate. The route will then be requested from the Spansh API and automatically loaded. To enable the automatic
-copying of system names, hit the "Auto Copy" button in the top right. You are then free to jump to the systems of the
-route, overcharging your FSD and pasting in the next system to the system map. Do not forget to take off route trips for
-refueling. Extra stars for refueling are not included in the route. 
+calculate. The route will then be requested from the [Spansh API](https://spansh.co.uk/plotter) and automatically
+loaded. To enable the automatic copying of system names, hit the "Auto Copy" button in the top right. You are then free
+to jump to the systems of the route, overcharging your FSD and pasting in the next system to the system map. Do not
+forget to take off route trips for refueling. Extra stars for refueling are not included in the route. 
