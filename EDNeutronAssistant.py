@@ -674,7 +674,7 @@ if __name__ == '__main__':
     root = tk.Tk()
 
     root.resizable(False, False)
-    root.title("EDNeutronAssistant v1.0-alpha")
+    root.title("EDNeutronAssistant v1.1")
 
     icon_path = "logo.ico"
     if hasattr(sys, "_MEIPASS"):
