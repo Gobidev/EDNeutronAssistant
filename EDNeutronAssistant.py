@@ -2,56 +2,64 @@ import os
 import sys
 import time
 import requests
+import urllib.parse
 import tkinter as tk
+import tkinter.ttk as ttk
 import clipboard
 import json
 import threading
 
 
-class StatusInformation(tk.Frame):
-    def __init__(self, *args, **kwargs):
+class StatusInformation(ttk.Frame):
+    def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Row 0
-        self.cmdr_lbl = tk.Label(self, text="CMDR:")
-        self.cmdr_lbl.grid(row=0, column=0, padx=3, pady=3, sticky="E")
+        self.application = application
 
-        self.cmdr_lbl_content = tk.Label(self, text="")
-        self.cmdr_lbl_content.grid(row=0, column=1, padx=3, pady=3, sticky="W")
+        # Row 0
+        self.cmdr_lbl = ttk.Label(self, text="CMDR:")
+        self.cmdr_lbl.grid(row=0, column=0, padx=3, pady=2, sticky="E")
+
+        self.cmdr_lbl_content = ttk.Label(self, text="")
+        self.cmdr_lbl_content.grid(row=0, column=1, padx=3, pady=2, sticky="W")
 
         # Row 1
-        self.current_system_lbl = tk.Label(self, text="Current System:")
-        self.current_system_lbl.grid(row=1, column=0, padx=3, pady=3, sticky="E")
+        self.current_system_lbl = ttk.Label(self, text="Current System:")
+        self.current_system_lbl.grid(row=1, column=0, padx=3, pady=2, sticky="E")
 
-        self.current_system_lbl_content = tk.Label(self, text="")
-        self.current_system_lbl_content.grid(row=1, column=1, columnspan=3, padx=3, pady=3, sticky="W")
+        self.current_system_lbl_content = ttk.Label(self, text="")
+        self.current_system_lbl_content.grid(row=1, column=1, columnspan=2, padx=3, pady=2, sticky="W")
 
         # Row 2
-        self.progress_lbl = tk.Label(self, text="Progress:")
-        self.progress_lbl.grid(row=2, column=0, padx=3, pady=3, sticky="E")
+        self.progress_lbl = ttk.Label(self, text="Progress:")
+        self.progress_lbl.grid(row=2, column=0, padx=3, pady=2, sticky="E")
 
-        self.progress_lbl_content = tk.Label(self, text="")
-        self.progress_lbl_content.grid(row=2, column=1, padx=3, pady=3, sticky="W")
+        self.progress_lbl_content = ttk.Label(self, text="")
+        self.progress_lbl_content.grid(row=2, column=1, padx=3, pady=2, sticky="W")
+
+        self.progress_bar = ttk.Progressbar(self, length=160)
+        self.progress_bar.grid(row=2, column=2, padx=3, pady=2, sticky="W")
+
+        self.progress_percentage = ttk.Label(self, text="")
+        self.progress_percentage.grid(row=2, column=3, padx=3, pady=2, sticky="W")
 
         # Row 3
-        self.next_system_lbl = tk.Label(self, text="Next System:")
-        self.next_system_lbl.grid(row=3, column=0, padx=3, pady=3, sticky="E")
+        self.next_system_lbl = ttk.Label(self, text="Next System:")
+        self.next_system_lbl.grid(row=3, column=0, padx=3, pady=2, sticky="E")
 
-        self.next_system_lbl_content = tk.Label(self, text="")
-        self.next_system_lbl_content.grid(row=3, column=1, padx=3, pady=3, sticky="W")
+        self.next_system_lbl_content = ttk.Label(self, text="")
+        self.next_system_lbl_content.grid(row=3, column=1, columnspan=2, padx=3, pady=2, sticky="W")
+
+        self.run_control_button = ttk.Button(self, text="Auto Copy", state="disabled", command=self.
+                                             on_run_control_button)
+        self.run_control_button.grid(row=3, column=2, padx=3, pady=2, sticky="E")
 
         # Row 4
-        self.next_system_information_lbl = tk.Label(self, text="System Information:")
-        self.next_system_information_lbl.grid(row=4, column=0, padx=3, pady=3, sticky="E")
+        self.next_system_information_lbl = ttk.Label(self, text="Information:")
+        self.next_system_information_lbl.grid(row=4, column=0, padx=3, pady=2, sticky="E")
 
-        self.distance_lbl = tk.Label(self, text="")
-        self.distance_lbl.grid(row=4, column=1, padx=3, pady=3)
-
-        self.jumps_lbl = tk.Label(self, text="")
-        self.jumps_lbl.grid(row=4, column=2, padx=3, pady=3)
-
-        self.is_neutron_star_lbl = tk.Label(self, text="")
-        self.is_neutron_star_lbl.grid(row=4, column=3, padx=3, pady=3)
+        self.next_system_information_lbl_content = ttk.Label(self, text="")
+        self.next_system_information_lbl_content.grid(row=4, column=1, columnspan=3, padx=3, pady=2, sticky="W")
 
     def update_cmdr_lbl(self, new_name: str):
         self.cmdr_lbl_content.configure(text=new_name)
@@ -59,36 +67,26 @@ class StatusInformation(tk.Frame):
     def update_current_system_lbl(self, new_system: str):
         self.current_system_lbl_content.configure(text=new_system)
 
-    def update_next_system_lbl(self, new_system: str, distance: float, jumps: int, is_neutron: bool):
+    def update_next_system_info(self, new_system: str, distance: float, jumps: int, is_neutron: bool):
         self.next_system_lbl_content.configure(text=new_system)
-        self.distance_lbl.configure(text=f"{distance} ly")
-        self.jumps_lbl.configure(text=f"{jumps} Jumps")
-        self.is_neutron_star_lbl.configure(text=f"Neutron: {'yes' if is_neutron else 'no'}")
+        self.next_system_information_lbl_content.configure(text=f"{distance} ly   {jumps} "
+                                                                f"{'Jumps' if jumps > 1 else 'Jump'}   Neutron: "
+                                                                f"{'yes' if is_neutron else 'no'}")
 
     def update_progress_lbl(self, current, total):
+        progress_percentage = round((current - 1) / (total - 1) * 100, 2)
         self.progress_lbl_content.configure(text=f"[{current}/{total}]")
+        self.progress_bar.configure(value=progress_percentage)
+        self.progress_percentage.configure(text=f"{progress_percentage}%")
 
     def reset_information(self):
         self.next_system_lbl_content.configure(text="")
-        self.distance_lbl.configure(text="")
-        self.jumps_lbl.configure(text="")
-        self.is_neutron_star_lbl.configure(text="")
+        self.next_system_information_lbl_content.configure(text="")
         self.progress_lbl_content.configure(text="")
-
-
-class RunControl(tk.Frame):
-    def __init__(self, application, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.application = application
-
-        self.run_control_button = tk.Button(self, text="Auto Copy", height=2, width=10, state="disabled",
-                                            command=self.on_run_control_button)
-        self.run_control_button.pack(fill="both")
 
     def on_run_control_button(self):
         if self.application.configuration["status"] == "stopped":
-            self.run_control_button.configure(text="Stop")
+            self.run_control_button.configure(text="Stop Auto Copy")
             self.application.configuration["status"] = "running"
             self.application.print_log("Started auto copy")
         else:
@@ -98,13 +96,13 @@ class RunControl(tk.Frame):
             self.application.configuration["last_copied"] = ""
 
 
-class LogFrame(tk.Frame):
+class LogFrame(ttk.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.main_text_box = tk.Text(self, height=10, width=60, wrap="none")
-        self.scrollbar_y = tk.Scrollbar(self, orient="vertical", command=self.main_text_box.yview)
-        self.scrollbar_x = tk.Scrollbar(self, orient="horizontal", command=self.main_text_box.xview)
+        self.main_text_box = tk.Text(self, height=7, width=40, wrap="none")
+        self.scrollbar_y = ttk.Scrollbar(self, orient="vertical", command=self.main_text_box.yview)
+        self.scrollbar_x = ttk.Scrollbar(self, orient="horizontal", command=self.main_text_box.xview)
         self.main_text_box.configure(yscrollcommand=self.scrollbar_y.set, xscrollcommand=self.scrollbar_x.set,
                                      state="disabled")
 
@@ -119,47 +117,47 @@ class LogFrame(tk.Frame):
         self.main_text_box.configure(state="disabled")
 
 
-class RouteSelection(tk.Frame):
+class RouteSelection(ttk.Frame):
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.application = application
 
         # Row 0
-        self.route_calculator_lbl = tk.Label(self, text="Route Calculator")
-        self.route_calculator_lbl.grid(row=0, column=0, padx=3, pady=3, sticky="W")
+        self.route_calculator_lbl = ttk.Label(self, text="Route Calculator")
+        self.route_calculator_lbl.grid(row=0, column=0, padx=3, pady=2, sticky="W")
 
         # Row 1
-        self.from_lbl = tk.Label(self, text="From:")
-        self.from_lbl.grid(row=1, column=0, padx=3, pady=3, sticky="E")
+        self.from_lbl = ttk.Label(self, text="From:")
+        self.from_lbl.grid(row=1, column=0, padx=3, pady=2, sticky="E")
 
-        self.from_entry = tk.Entry(self)
-        self.from_entry.grid(row=1, column=1, padx=3, pady=3)
+        self.from_entry = ttk.Entry(self)
+        self.from_entry.grid(row=1, column=1, padx=3, pady=2)
 
         # Row 2
-        self.to_lbl = tk.Label(self, text="To:")
-        self.to_lbl.grid(row=2, column=0, padx=3, pady=3, sticky="E")
+        self.to_lbl = ttk.Label(self, text="To:")
+        self.to_lbl.grid(row=2, column=0, padx=3, pady=2, sticky="E")
 
-        self.to_entry = tk.Entry(self)
-        self.to_entry.grid(row=2, column=1, padx=3, pady=3)
+        self.to_entry = ttk.Entry(self)
+        self.to_entry.grid(row=2, column=1, padx=3, pady=2)
 
         # Row 3
-        self.efficiency_lbl = tk.Label(self, text="Efficiency:")
-        self.efficiency_lbl.grid(row=3, column=0, padx=3, pady=3, sticky="E")
+        self.efficiency_lbl = ttk.Label(self, text="Efficiency:")
+        self.efficiency_lbl.grid(row=3, column=0, padx=3, pady=2, sticky="E")
 
-        self.efficiency_entry = tk.Entry(self)
+        self.efficiency_entry = ttk.Entry(self)
         self.efficiency_entry.insert(0, "60")
-        self.efficiency_entry.grid(row=3, column=1, padx=3, pady=3)
+        self.efficiency_entry.grid(row=3, column=1, padx=3, pady=2)
 
         # Row 4
-        self.jump_range_lbl = tk.Label(self, text="Jump Range:")
-        self.jump_range_lbl.grid(row=4, column=0, padx=3, pady=3, sticky="E")
+        self.jump_range_lbl = ttk.Label(self, text="Jump Range:")
+        self.jump_range_lbl.grid(row=4, column=0, padx=3, pady=2, sticky="E")
 
-        self.jump_range_entry = tk.Entry(self)
-        self.jump_range_entry.grid(row=4, column=1, padx=3, pady=3)
+        self.jump_range_entry = ttk.Entry(self)
+        self.jump_range_entry.grid(row=4, column=1, padx=3, pady=2)
 
-        self.calculate_button = tk.Button(self, text="Calculate", command=self.on_calculate_button)
-        self.calculate_button.grid(row=4, column=2, padx=3, pady=3)
+        self.calculate_button = ttk.Button(self, text="Calculate", command=self.on_calculate_button)
+        self.calculate_button.grid(row=4, column=2, padx=3, pady=2)
 
     def calculate_thread(self):
         self.calculate_button.configure(state="disabled")
@@ -197,21 +195,21 @@ class RouteSelection(tk.Frame):
         threading.Thread(target=self.calculate_thread).start()
 
 
-class MainApplication(tk.Frame):
+class MainApplication(ttk.Frame):
     def __init__(self, parent_window, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.parent_window = parent_window
 
         # UI elements
-        self.status_information_frame = StatusInformation(self)
+        self.status_information_frame = StatusInformation(self, self)
         self.status_information_frame.grid(row=0, column=0, sticky="W")
 
-        self.run_control = RunControl(self, self)
-        self.run_control.grid(row=0, column=1, sticky="W")
+        # self.run_control = RunControl(self, self)
+        # self.run_control.grid(row=0, column=1, sticky="W")
 
         self.log_frame = LogFrame(self)
-        self.log_frame.grid(row=1, column=0, columnspan=2)
+        self.log_frame.grid(row=1, column=0)
 
         self.route_selection = RouteSelection(self, self)
         self.route_selection.grid(row=2, column=0, sticky="W")
@@ -332,7 +330,7 @@ class MainApplication(tk.Frame):
             # Read log file
             if self.verbose:
                 self.print_log(f"Reading log file {newest_log_file}")
-            with open(newest_log_file, "r") as f:
+            with open(newest_log_file, "r", encoding="utf-8") as f:
                 all_entries = f.readlines()
 
             entries_parsed = []
@@ -452,7 +450,8 @@ class MainApplication(tk.Frame):
             if self.verbose:
                 self.print_log(f"Retrieving coordinates of system {system} from EDSM API")
 
-            response = requests.get(f"https://www.edsm.net/api-v1/system?systemName={system.replace(' ', '%20')}"
+            system = urllib.parse.quote_plus(system)
+            response = requests.get(f"https://www.edsm.net/api-v1/system?systemName={system}"
                                     f"&showCoordinates=1")
 
             coordinates = json.loads(response.text)["coords"]
@@ -608,15 +607,17 @@ class MainApplication(tk.Frame):
         next_system, index_current, total_systems, distance, jumps, is_neutron =\
             self.get_next_route_system(plotter_data, current_system)
 
+        self.update_current_system(current_system)
+
         if next_system == current_system or not next_system:
             del self.configuration["route"]
+            self.status_information_frame.progress_bar.configure(value=100)
             self.print_log("Route completed")
             self.write_config()
 
         # Update status information
-        self.update_current_system(current_system)
         if next_system:
-            self.status_information_frame.update_next_system_lbl(next_system, distance, jumps, is_neutron)
+            self.status_information_frame.update_next_system_info(next_system, distance, jumps, is_neutron)
             self.status_information_frame.update_progress_lbl(index_current, total_systems)
 
             if self.configuration["last_copied"] != next_system and self.configuration["status"] == "running":
@@ -644,15 +645,15 @@ class MainApplication(tk.Frame):
                         and ship_range:
                     self.route_selection.jump_range_entry.delete(0, "end")
                     self.route_selection.jump_range_entry.insert(0, str(ship_range) if ship_range else "")
-                    self.print_log(f"Found ship jump range {ship_range} LY")
+                    self.print_log(f"Found jump range {ship_range} LY")
                     self.configuration["ship_range"] = ship_range
 
                 if "route" in self.configuration and self.configuration["route"]:
 
-                    self.run_control.run_control_button.configure(state="normal")
+                    self.status_information_frame.run_control_button.configure(state="normal")
                     self.update_route()
                 else:
-                    self.run_control.run_control_button.configure(state="disabled", text="Auto Copy")
+                    self.status_information_frame.run_control_button.configure(state="disabled", text="Auto Copy")
                     current_system = self.get_current_system(game_log)
 
                     self.update_current_system(current_system)
@@ -674,7 +675,7 @@ if __name__ == '__main__':
     root = tk.Tk()
 
     root.resizable(False, False)
-    root.title("EDNeutronAssistant v1.1")
+    root.title("EDNeutronAssistant v1.2")
 
     icon_path = "logo.ico"
     if hasattr(sys, "_MEIPASS"):
@@ -684,7 +685,7 @@ if __name__ == '__main__':
     root.iconbitmap(default=icon_path)
 
     ed_neutron_assistant = MainApplication(root, root)
-    ed_neutron_assistant.pack(fill="both")
+    ed_neutron_assistant.pack(fill="both", padx=5, pady=5)
 
     root.protocol("WM_DELETE_WINDOW", ed_neutron_assistant.terminate)
 
