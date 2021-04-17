@@ -117,6 +117,75 @@ class LogFrame(ttk.Frame):
         self.main_text_box.configure(state="disabled")
 
 
+class SystemEntry(tk.Entry):
+    def __init__(self, *args):
+        tk.Entry.__init__(self, *args)
+        self.completion_list = []
+        self.hits = []
+        self.hit_index = 0
+        self.position = 0
+
+        self.request_running = False
+
+    def set_completion_list(self, completion_list):
+        self.completion_list = sorted(completion_list, key=str.lower)
+        self.hits = []
+        self.hit_index = 0
+        self.position = 0
+        self.bind('<KeyRelease>', self.handle_keyrelease)
+
+    def autocomplete(self, delta=0):
+        if delta:
+            self.delete(self.position, tk.END)
+        else:
+            self.position = len(self.get())
+        _hits = []
+        for element in self.completion_list:
+            if element.lower().startswith(self.get().lower()):
+                _hits.append(element)
+        if _hits != self.hits:
+            self.hit_index = 0
+            self.hits = _hits
+        if _hits == self.hits and self.hits:
+            self.hit_index = (self.hit_index + delta) % len(self.hits)
+        if self.hits:
+            self.delete(0, tk.END)
+            self.insert(0, self.hits[self.hit_index])
+            self.select_range(self.position, tk.END)
+
+    def handle_keyrelease(self, event):
+        if event.keysym == "BackSpace":
+            self.delete(self.index(tk.INSERT), tk.END)
+            self.position = self.index(tk.END)
+        else:
+            threading.Thread(target=self.update_completion_list).start()
+        if event.keysym == "Left":
+            if self.position < self.index(tk.END):
+                self.delete(self.position, tk.END)
+            else:
+                self.position = self.position - 1
+                self.delete(self.position, tk.END)
+        if event.keysym == "Right":
+            self.position = self.index(tk.END)
+        if event.keysym == "Down":
+            self.autocomplete(1)
+        if event.keysym == "Up":
+            self.autocomplete(-1)
+        if len(event.keysym) == 1:
+            self.autocomplete()
+
+    def update_completion_list(self):
+        if self.request_running:
+            return
+        else:
+            self.request_running = True
+        self.set_completion_list(
+            json.loads(requests.get(
+                f"https://www.spansh.co.uk/api/systems?q={urllib.parse.quote_plus(self.get())}").text))
+        print(self.completion_list)
+        self.request_running = False
+
+
 class RouteSelection(ttk.Frame):
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -204,9 +273,6 @@ class MainApplication(ttk.Frame):
         # UI elements
         self.status_information_frame = StatusInformation(self, self)
         self.status_information_frame.grid(row=0, column=0, sticky="W")
-
-        # self.run_control = RunControl(self, self)
-        # self.run_control.grid(row=0, column=1, sticky="W")
 
         self.log_frame = LogFrame(self)
         self.log_frame.grid(row=1, column=0)
