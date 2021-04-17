@@ -5,12 +5,23 @@ This project is a continuation of a [EDRouteManager](https://github.com/Gobidev/
 but never really finished, so it ended up remaining unfinished for a long while. Because I became much better at coding 
 since then, I decided to rework the project from scratch rather than continuing it.
 
-# Current State of Development
+## Current State of Development
 This application is in comparison to its predecessor already in a very stable state, although there may still be some
-crashes and bugs as I have not yet tested everything. For the future, I plan to implement support for the improved 
-[Spansh Galaxy Plotter](https://www.spansh.co.uk/exact-plotter) and further improvements to the UI.
+crashes and bugs.
 
-# Usage
+### Known Issues
+
+- Progress bar resets to 0 when entering an off route system
+
+### Planned Features
+
+- System suggestions while typing a system name
+- Implementation of the [exact spansh plotter](https://www.spansh.co.uk/exact-plotter)
+- Windows Installer
+- [Chcolatey](https://chocolatey.org/) support 
+- (plugin for EDMC)
+
+## Usage
 Download the latest build from the [Releases Tab](https://github.com/Gobidev/EDNeutronAssistant/releases/).
 
 The usage of EDNeutronAssistant is very straight forward, as no other third party tools or programs are necessary. After
