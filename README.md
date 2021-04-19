@@ -9,17 +9,11 @@ since then, I decided to rework the project from scratch rather than continuing 
 This application is in comparison to its predecessor already in a very stable state, although there may still be some
 crashes and bugs.
 
-### Known Issues
-
-- Progress bar resets to 0 when entering an off route system
-
 ### Planned Features
 
-- System suggestions while typing a system name
 - Implementation of the [exact spansh plotter](https://www.spansh.co.uk/exact-plotter)
 - Windows Installer
-- [Chcolatey](https://chocolatey.org/) support 
-- (plugin for EDMC)
+- [Chcolatey](https://chocolatey.org/) support
 
 ## Usage
 Download the latest build from the [Releases Tab](https://github.com/Gobidev/EDNeutronAssistant/releases/).
