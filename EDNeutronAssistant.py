@@ -10,6 +10,8 @@ import clipboard
 import json
 import threading
 
+__version__ = "v1.3"
+
 
 class StatusInformation(ttk.Frame):
     def __init__(self, application, *args, **kwargs):
@@ -85,16 +87,19 @@ class StatusInformation(ttk.Frame):
         self.next_system_information_lbl_content.configure(text="")
         self.progress_lbl_content.configure(text="")
 
+    def stop_auto_copy(self):
+        self.application.configuration["status"] = "stopped"
+        self.run_control_button.configure(text="Auto Copy")
+        self.application.print_log("Stopped auto copy")
+        self.application.configuration["last_copied"] = ""
+
     def on_run_control_button(self):
         if self.application.configuration["status"] == "stopped":
-            self.run_control_button.configure(text="Stop Auto Copy")
+            self.run_control_button.configure(text="Stop")
             self.application.configuration["status"] = "running"
             self.application.print_log("Started auto copy")
         else:
-            self.application.configuration["status"] = "stopped"
-            self.run_control_button.configure(text="Auto Copy")
-            self.application.print_log("Stopped auto copy")
-            self.application.configuration["last_copied"] = ""
+            self.stop_auto_copy()
 
 
 class LogFrame(ttk.Frame):
@@ -490,15 +495,20 @@ class MainApplication(ttk.Frame):
         route_systems = []
         for entry in plotter_data:
             route_systems.append(entry["system"])
-
         total_systems = len(route_systems)
 
         next_system = ""
-        index_current_system, next_system_jumps, distance = 0, 0, 0
+        next_system_jumps, distance = 0, 0
+        if "last_route_system_index" in self.configuration and self.configuration["last_route_system_index"]:
+            index_current_system = int(self.configuration["last_route_system_index"])
+        else:
+            index_current_system = 0
+
         next_system_is_neutron = False
 
         if current_system in route_systems:
             index_current_system = route_systems.index(current_system)
+
             try:
                 next_system = route_systems[index_current_system + 1]
                 if self.verbose:
@@ -509,6 +519,7 @@ class MainApplication(ttk.Frame):
         if next_system or "next_system" in self.configuration and self.configuration["next_system"] != current_system:
             if next_system:
                 self.configuration["next_system"] = next_system
+                self.configuration["last_route_system_index"] = index_current_system
                 self.write_config()
                 distance_current_system = plotter_data[index_current_system]["distance_jumped"]
                 distance_next_system = plotter_data[index_current_system + 1]["distance_jumped"]
@@ -609,8 +620,10 @@ class MainApplication(ttk.Frame):
 
         if next_system == current_system or not next_system:
             del self.configuration["route"]
-            self.status_information_frame.progress_bar.configure(value=100)
+            self.status_information_frame.update_progress_lbl(index_current, total_systems)
+            self.configuration["last_route_system_index"] = 0
             self.print_log("Route completed")
+            self.status_information_frame.stop_auto_copy()
             self.write_config()
 
         # Update status information
@@ -673,7 +686,7 @@ if __name__ == '__main__':
     root = tk.Tk()
 
     root.resizable(False, False)
-    root.title("EDNeutronAssistant v1.2")
+    root.title(f"EDNeutronAssistant {__version__}")
 
     icon_path = "logo.ico"
     if hasattr(sys, "_MEIPASS"):
