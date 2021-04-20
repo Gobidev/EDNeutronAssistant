@@ -12,7 +12,6 @@ crashes and bugs.
 ### Planned Features
 
 - Implementation of the [exact spansh plotter](https://www.spansh.co.uk/exact-plotter)
-- Windows Installer
 - [Chcolatey](https://chocolatey.org/) support
 
 ## Usage
