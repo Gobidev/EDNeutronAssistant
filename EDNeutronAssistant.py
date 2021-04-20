@@ -10,7 +10,7 @@ import clipboard
 import json
 import threading
 
-__version__ = "v1.3"
+__version__ = "v1.3.1"
 
 
 class StatusInformation(ttk.Frame):
@@ -692,6 +692,10 @@ if __name__ == '__main__':
     if hasattr(sys, "_MEIPASS"):
         # noinspection PyProtectedMember
         icon_path = os.path.join(sys._MEIPASS, icon_path)
+    elif getattr(sys, "frozen", False):
+        icon_path = os.path.join(os.path.dirname(sys.executable), icon_path)
+    else:
+        icon_path = os.path.join(os.getcwd(), icon_path)
 
     root.iconbitmap(default=icon_path)
 

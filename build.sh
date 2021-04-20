@@ -1,9 +1,14 @@
 #!/bin/sh
 
-if [ "$1" = "installer" ]
-then
-  pyinstaller --noconfirm --windowed --icon "logo.ico" --add-data "logo.ico;." "EDNeutronAssistant.py"
+build_all() {
+  # Clear old build log
+  echo "" > "build.log"
 
-else
+  echo "Building standalone exe"
   pyinstaller --noconfirm --windowed --onefile --icon "logo.ico" --add-data "logo.ico;." "EDNeutronAssistant.py"
-fi
+
+  echo "Building windows installer"
+  python setup.py bdist_msi
+}
+
+build_all | tee "build.log"
