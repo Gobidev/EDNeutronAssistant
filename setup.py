@@ -1,6 +1,38 @@
 from cx_Freeze import setup, Executable
 from EDNeutronAssistant import __version__
 
+NAME = "EDNeutronAssistant"
+
+shortcut_table = [
+    (
+        "DesktopShortcut",
+        "DesktopFolder",
+        NAME,
+        "TARGETDIR",
+        "[TARGETDIR]EDNeutronAssistant.exe",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        'TARGETDIR'
+     ),
+    (
+        "StartMenuShortcut",
+        "StartMenuFolder",
+        NAME,
+        "TARGETDIR",
+        "[TARGETDIR]EDNeutronAssistant.exe",
+        None,
+        None,
+        "logo.ico",
+        None,
+        None,
+        None,
+        'TARGETDIR'
+    )
+]
 
 setup(
     name="EDNeutronAssistant",
@@ -14,14 +46,13 @@ setup(
         },
         "bdist_msi": {
             "install_icon": "logo.ico",
-            "target_name": "EDNeutronAssistant_Installer.msi"
+            "target_name": "EDNeutronAssistant_Installer.msi",
+            "data": {"Shortcut": shortcut_table}
         }
     },
     executables=[
         Executable(
             "EDNeutronAssistant.py",
-            shortcut_name="EDNeutronAssistant",
-            shortcut_dir="DesktopFolder",
             base="Win32GUI",
             icon="logo.ico",
         )
