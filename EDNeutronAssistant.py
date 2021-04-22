@@ -10,7 +10,7 @@ import clipboard
 import json
 import threading
 
-__version__ = "v1.3.1"
+__version__ = "v1.3.1.1"
 
 
 class StatusInformation(ttk.Frame):
