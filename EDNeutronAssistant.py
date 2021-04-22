@@ -1,16 +1,28 @@
 import os
 import sys
 import time
+import webbrowser
 import requests
 import urllib.parse
 import tkinter as tk
 import tkinter.ttk as ttk
+import tkinter.messagebox
 import autocomplete
 import clipboard
 import json
 import threading
 
-__version__ = "v1.3.1.1"
+__version__ = "v1.3.2"
+
+
+def update_available():
+    newest_version = requests.get("https://api.github.com/repos/Gobidev/EDNeutronAssistant/releases/latest").json()
+    newest_version = newest_version["name"].split(" ")[-1]
+
+    if newest_version != __version__:
+        return True, newest_version
+    else:
+        return False, __version__
 
 
 class StatusInformation(ttk.Frame):
@@ -688,6 +700,7 @@ if __name__ == '__main__':
     root.resizable(False, False)
     root.title(f"EDNeutronAssistant {__version__}")
 
+    # Set logo file path according to environment
     icon_path = "logo.ico"
     if hasattr(sys, "_MEIPASS"):
         # noinspection PyProtectedMember
@@ -702,6 +715,20 @@ if __name__ == '__main__':
     ed_neutron_assistant = MainApplication(root, root)
     ed_neutron_assistant.pack(fill="both", padx=5, pady=5)
 
+    # Exit program when closing
     root.protocol("WM_DELETE_WINDOW", ed_neutron_assistant.terminate)
+
+    # Checking for update
+    ed_neutron_assistant.print_log("Checking GitHub for updates")
+    update, version = update_available()
+
+    if update:
+        ed_neutron_assistant.print_log(f"Found new version {version}")
+        update_message = tk.messagebox.askyesno("Update Available",
+                                                "A new version of EDNeutronAssistant is available. Download now?")
+        if update_message:
+            webbrowser.open_new_tab(f"https://github.com/Gobidev/EDNeutronAssistant/releases/latest")
+    else:
+        ed_neutron_assistant.print_log(f"Already running latest version")
 
     root.mainloop()
