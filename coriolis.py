@@ -21,5 +21,5 @@ def get_coriolis_url(loadout_event: dict) -> str:
 
 
 def convert_loadout_event_to_coriolis(loadout_event: dict) -> str:
-    response = requests.post("https://coriolis.gobidev.de/convert", json=loadout_event)
+    response = requests.post("https://coriolis-api.gobidev.de/convert", json=loadout_event)
     return response.text
