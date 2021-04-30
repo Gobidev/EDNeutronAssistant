@@ -3,19 +3,21 @@ import sys
 import time
 import webbrowser
 import requests
-import urllib.parse
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.messagebox
-import autocomplete
-import clipboard
 import json
 import threading
 
-__version__ = "v1.3.2"
+import autocomplete
+import utils
+
+__version__ = "v1.4"
 
 
-def update_available():
+def update_available() -> (bool, str):
+    """Check for available update on GitHub and return version if available"""
+
     newest_version = requests.get("https://api.github.com/repos/Gobidev/EDNeutronAssistant/releases/latest").json()
     newest_version = newest_version["name"].split(" ")[-1]
 
@@ -65,10 +67,6 @@ class StatusInformation(ttk.Frame):
         self.next_system_lbl_content = ttk.Label(self, text="")
         self.next_system_lbl_content.grid(row=3, column=1, columnspan=2, padx=3, pady=2, sticky="W")
 
-        self.run_control_button = ttk.Button(self, text="Auto Copy", state="disabled", command=self.
-                                             on_run_control_button)
-        self.run_control_button.grid(row=3, column=2, padx=3, pady=2, sticky="E")
-
         # Row 4
         self.next_system_information_lbl = ttk.Label(self, text="Information:")
         self.next_system_information_lbl.grid(row=4, column=0, padx=3, pady=2, sticky="E")
@@ -99,20 +97,6 @@ class StatusInformation(ttk.Frame):
         self.next_system_information_lbl_content.configure(text="")
         self.progress_lbl_content.configure(text="")
 
-    def stop_auto_copy(self):
-        self.application.configuration["status"] = "stopped"
-        self.run_control_button.configure(text="Auto Copy")
-        self.application.print_log("Stopped auto copy")
-        self.application.configuration["last_copied"] = ""
-
-    def on_run_control_button(self):
-        if self.application.configuration["status"] == "stopped":
-            self.run_control_button.configure(text="Stop")
-            self.application.configuration["status"] = "running"
-            self.application.print_log("Started auto copy")
-        else:
-            self.stop_auto_copy()
-
 
 class LogFrame(ttk.Frame):
     def __init__(self, *args, **kwargs):
@@ -135,7 +119,7 @@ class LogFrame(ttk.Frame):
         self.main_text_box.configure(state="disabled")
 
 
-class RouteSelection(ttk.Frame):
+class SimpleRouteSelection(ttk.Frame):
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -149,14 +133,14 @@ class RouteSelection(ttk.Frame):
         self.from_lbl = ttk.Label(self, text="From:")
         self.from_lbl.grid(row=1, column=0, padx=3, pady=2, sticky="E")
 
-        self.from_combobox = autocomplete.AutoSystemCombo(self)
+        self.from_combobox = autocomplete.SystemAutocompleteCombobox(self)
         self.from_combobox.grid(row=1, column=1, columnspan=2, padx=3, pady=2, sticky="W")
 
         # Row 2
         self.to_lbl = ttk.Label(self, text="To:")
         self.to_lbl.grid(row=2, column=0, padx=3, pady=2, sticky="E")
 
-        self.to_combobox = autocomplete.AutoSystemCombo(self)
+        self.to_combobox = autocomplete.SystemAutocompleteCombobox(self)
         self.to_combobox.grid(row=2, column=1, columnspan=2, padx=3, pady=2, sticky="W")
 
         # Row 3
@@ -196,7 +180,9 @@ class RouteSelection(ttk.Frame):
             self.calculate_button.configure(state="normal")
             return
 
-        route_systems = self.application.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system)
+        route_systems = utils.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system,
+                                                        self.application.config_path,
+                                                        log_function=self.application.print_log)
 
         self.calculate_button.configure(state="normal")
 
@@ -205,9 +191,7 @@ class RouteSelection(ttk.Frame):
 
         self.application.print_log(f"Loaded route of {len(route_systems)} systems")
         self.application.configuration["route"] = route_systems
-        self.application.configuration["current_system"] = ""
         self.application.write_config()
-        self.application.update_route()
 
     def on_calculate_button(self):
         threading.Thread(target=self.calculate_thread).start()
@@ -226,15 +210,13 @@ class MainApplication(ttk.Frame):
         self.log_frame = LogFrame(self)
         self.log_frame.grid(row=1, column=0)
 
-        self.route_selection = RouteSelection(self, self)
+        self.route_selection = SimpleRouteSelection(self, self)
         self.route_selection.grid(row=2, column=0, sticky="W")
 
         # Setting variables
         self.verbose = False
         self.poll_rate = 1
         self.config_path = os.path.join(os.getenv("APPDATA"), "EDNeutronAssistant")
-        self.log_file_path = os.path.join(self.config_path, "logs",
-                                          f"EDNeutronAssistant-{time.strftime('%Y-%m-%d')}.log")
 
         self.configuration = {}
 
@@ -243,17 +225,18 @@ class MainApplication(ttk.Frame):
         except FileNotFoundError:
             pass
 
-        self.configuration["status"] = "stopped"
-        self.configuration["last_copied"] = ""
-        self.configuration["last_current_system"] = ""
-        self.configuration["ship_range"] = 0
+        self.configuration["current_system"] = ""
+        self.configuration["ship_build"] = ("", "")
         self.configuration["commander_name"] = ""
+
+        self.configuration["exiting"] = False
+        self.configuration["last_copied"] = ""
 
         # Creating working directory
         if not os.path.isdir(self.config_path):
             os.mkdir(self.config_path)
 
-        self.print_log(f"Logging at {self.log_file_path}")
+        self.write_config()
 
         # --- Running initialization ---
         self.print_log("Initializing")
@@ -266,7 +249,7 @@ class MainApplication(ttk.Frame):
         self.print_log("Initialization complete")
 
     def print_log(self, *args):
-        """Print content to file and console along with a timestamp."""
+        """Print content to file and console along with a timestamp"""
 
         t = time.strftime("%T")
         print(t, *args)
@@ -277,14 +260,12 @@ class MainApplication(ttk.Frame):
 
         self.log_frame.add_to_log(entry)
 
-        try:
-            if not os.path.isdir(self.config_path + "\\logs"):
-                os.mkdir(self.config_path + "\\logs")
+        if not os.path.isdir(self.config_path + "\\logs"):
+            os.mkdir(self.config_path + "\\logs")
 
-            with open(self.log_file_path, "a") as f:
-                f.write(entry + "\n")
-        except FileNotFoundError:
-            pass
+        with open(os.path.join(self.config_path, "logs",
+                               f"EDNeutronAssistant-{time.strftime('%Y-%m-%d')}.log"), "a") as f:
+            f.write(entry + "\n")
 
     def write_config(self):
         """Writes the current configuration to the config file"""
@@ -293,404 +274,127 @@ class MainApplication(ttk.Frame):
         if self.verbose:
             self.print_log("Saved configuration to file")
 
-    def update_current_system(self, current_system: str):
-        """Update ui elements with a new current system"""
-
-        if current_system != self.configuration["last_current_system"] and current_system:
-            self.print_log(f"Entered system {current_system}")
-            self.configuration["last_current_system"] = current_system
-
-            self.route_selection.from_combobox.set(current_system)
-            self.route_selection.from_combobox.set_completion_list([current_system])
-            self.status_information_frame.update_current_system_lbl(current_system)
-
-    def parse_game_log(self) -> list:
-        """Parses the Elite: Dangerous logfiles to retrieve information about the game"""
-
-        # Check OS
-        if self.verbose:
-            self.print_log("Checking Host OS")
-
-        if os.name == "nt":
-            if self.verbose:
-                self.print_log("Host OS is Windows, continuing")
-
-            # Retrieve newest log file
-            windows_username = os.getlogin()
-            file_directory = "C:\\Users\\" + windows_username + "\\Saved Games\\Frontier Developments\\Elite Dangerous"
-
-            if self.verbose:
-                self.print_log("Searching game log directory")
-
-            if not os.path.isdir(file_directory):
-                self.print_log("Game logs not found")
-                return []
-
-            if self.verbose:
-                self.print_log(f"Reading game log from {file_directory}")
-
-            all_files = [file_directory + "\\" + n for n in os.listdir(file_directory)]
-
-            # Filter files that are no logs
-            journal_files = []
-            for file in all_files:
-                if "Journal" in file:
-                    journal_files.append(file)
-
-            newest_log_file = max(journal_files, key=os.path.getctime)
-
-            if self.verbose:
-                self.print_log(f"Found newest log file {newest_log_file}")
-
-            # Read log file
-            if self.verbose:
-                self.print_log(f"Reading log file {newest_log_file}")
-            with open(newest_log_file, "r", encoding="utf-8") as f:
-                all_entries = f.readlines()
-
-            entries_parsed = []
-            for entry in all_entries:
-                entries_parsed.append(json.loads(entry))
-
-            return entries_parsed
-
-        else:
-            self.print_log("Installed OS is not supported")
-            return []
-
-    def get_current_system(self, entries_parsed: list) -> str:
-        """Return name of the last star system the commander visited"""
-
-        if self.verbose:
-            self.print_log("Looking for current system")
-
-        all_session_systems = []
-        for entry in entries_parsed:
-            if "StarSystem" in entry:
-                if len(all_session_systems) == 0 or all_session_systems[-1] != entry["StarSystem"]:
-                    all_session_systems.append(entry["StarSystem"])
-
-        if len(all_session_systems) > 0:
-            current_system = all_session_systems[-1]
-            if self.verbose:
-                self.print_log(f"Found system {current_system}")
-        else:
-            current_system = ""
-            if self.verbose:
-                print("No current system found")
-
-        return current_system
-
-    def get_commander_name(self, entries_parsed: list) -> str:
-        """Parse log file for commander name"""
-
-        if self.verbose:
-            self.print_log("Looking for commander name")
-
-        commander_name = ""
-
-        for entry in entries_parsed:
-            if entry["event"] == "Commander":
-                commander_name = entry["Name"]
-                break
-            elif "Commander" in entry:
-                commander_name = entry["Commander"]
-                break
-
-        if self.verbose:
-            if commander_name:
-                self.print_log(f"Found name {commander_name}")
-            else:
-                self.print_log("No commander name found")
-
-        return commander_name
-
-    def get_ship_range(self, entries_parsed: list) -> float:
-        """Parse log file for ship jump range"""
-
-        if self.verbose:
-            self.print_log("Looking for ship jump range")
-
-        jump_range = 0
-
-        all_ranges = []
-        for entry in entries_parsed:
-            if entry["event"] == "Loadout":
-                all_ranges.append(float(entry["MaxJumpRange"]))
-
-        if len(all_ranges):
-            jump_range = all_ranges[-1]
-
-        if self.verbose:
-            if jump_range:
-                self.print_log(f"Found jump range {jump_range}")
-            else:
-                self.print_log("No jump range found")
-
-        final_range = round(.95 * jump_range, 2)
-
-        return final_range
-
-    def parse_plotter_csv(self, filename: str) -> list:
-        """Parse a file that was created with the spansh plotter, probably not used in final version"""
-
-        self.print_log(f"Parsing route file {filename}")
-
-        def parse_line(line_: str) -> dict:
-            line_elements = line_.replace('"', "").replace("\n", "").split(",")
-            return dict(zip(line_keys, line_elements))
-
-        with open(filename, "r") as f:
-            all_lines = f.readlines()
-
-        output = []
-        line_keys = eval(all_lines[0])
-        del all_lines[0]
-        for line in all_lines:
-            output.append(parse_line(line))
-        return output
-
-    def get_distance_between_systems(self, system1: str, system2: str) -> float:
-        """Calculate the distance between two systems using the EDSM API"""
-
-        if not (system1 and system2):
-            return 0
-
-        if self.verbose:
-            self.print_log(f"Calculating distance between systems {system1} and {system2}")
-
-        def get_coordinates(system: str) -> dict:
-            """Retrieve the coordinates of a system from the EDSM API"""
-
-            if self.verbose:
-                self.print_log(f"Retrieving coordinates of system {system} from EDSM API")
-
-            system = urllib.parse.quote_plus(system)
-            response = requests.get(f"https://www.edsm.net/api-v1/system?systemName={system}"
-                                    f"&showCoordinates=1")
-
-            coordinates = json.loads(response.text)["coords"]
-
-            if self.verbose:
-                self.print_log(f"Coordinates of system {system} are {coordinates}")
-
-            return coordinates
-
-        s1coordinates = get_coordinates(system1)
-        s2coordinates = get_coordinates(system2)
-
-        distance = round(
-            ((s2coordinates["x"] - s1coordinates["x"]) ** 2 + (s2coordinates["y"] - s1coordinates["y"]) ** 2 +
-             (s2coordinates["z"] - s1coordinates["z"]) ** 2) ** (1 / 2), 2)
-
-        if self.verbose:
-            self.print_log(f"Distance between systems {system1} and {system2} is {distance}")
-
-        return distance
-
-    def get_nearest_system_in_route(self, plotter_data: list, current_system: str) -> str:
-        """Calculate which system of a route is the nearest to the current system, can take a long time to process"""
-        all_systems = []
-        for entry in plotter_data:
-            all_systems.append(entry["system"])
-
-        all_distances = {}
-        for system in all_systems:
-            distance = self.get_distance_between_systems(system, current_system)
-            all_distances[system] = distance
-            print(f"Distance to {system} is {distance}")
-
-        return min(all_distances, key=all_distances.get)
-
-    def get_next_route_system(self, plotter_data: list, current_system: str) -> (str, int, int, float, int, bool):
-
-        route_systems = []
-        for entry in plotter_data:
-            route_systems.append(entry["system"])
-        total_systems = len(route_systems)
-
-        next_system = ""
-        next_system_jumps, distance = 0, 0
-        if "last_route_system_index" in self.configuration and self.configuration["last_route_system_index"]:
-            index_current_system = int(self.configuration["last_route_system_index"])
-        else:
-            index_current_system = 0
-
-        next_system_is_neutron = False
-
-        if current_system in route_systems:
-            index_current_system = route_systems.index(current_system)
-
-            try:
-                next_system = route_systems[index_current_system + 1]
-                if self.verbose:
-                    self.print_log(f"Found next system: {next_system}")
-            except IndexError:
-                pass
-
-        if next_system or "next_system" in self.configuration and self.configuration["next_system"] != current_system:
-            if next_system:
-                self.configuration["next_system"] = next_system
-                self.configuration["last_route_system_index"] = index_current_system
-                self.write_config()
-                distance_current_system = plotter_data[index_current_system]["distance_jumped"]
-                distance_next_system = plotter_data[index_current_system + 1]["distance_jumped"]
-                next_system_jumps = plotter_data[index_current_system + 1]["jumps"]
-                distance = round(distance_next_system - distance_current_system, 2)
-            else:
-                next_system = self.configuration["next_system"]
-                jump_range = self.get_ship_range(self.parse_game_log())
-
-                systems_string = f"{current_system}__{next_system}"
-                if "last_distance" in self.configuration and self.configuration["last_distance"][0] == systems_string:
-                    distance = self.configuration["last_distance"][1]
-                else:
-                    distance = self.get_distance_between_systems(current_system, next_system)
-                    self.configuration["last_distance"] = systems_string, distance
-                    self.write_config()
-
-                if jump_range != 0:
-                    next_system_jumps = int(round(distance / jump_range, 0))
-                else:
-                    next_system_jumps = 0
-                if next_system_jumps * jump_range < distance:
-                    next_system_jumps += 1
-
-            next_system_is_neutron = plotter_data[index_current_system + 1]["neutron_star"]
-
-        return next_system, index_current_system + 1, total_systems, distance, next_system_jumps, next_system_is_neutron
-
-    def copy_system_to_clipboard(self, system: str):
-        """Copy a system into the commanders clipboard"""
-        clipboard.copy(system)
-        self.print_log(f"Copied system {system} to clipboard")
-
-    def calc_simple_neutron_route(self, efficiency: int, ship_range: float, start_system: str, end_system: str) -> list:
-        """Use the Spansh API to calculate a neutron star route"""
-
-        self.print_log(f"Calculating route from {start_system} to {end_system} with efficiency {efficiency} and jump "
-                       f"range {ship_range}")
-
-        if not os.path.isdir(self.config_path + "\\routes"):
-            os.mkdir(self.config_path + "\\routes")
-
-        filename = f"{self.config_path}\\routes\\NeutronAssistantRoute-{efficiency}-{ship_range}-" \
-                   f"{start_system.replace(' ', '_')}-{end_system.replace(' ', '_')}.json"
-
-        # Test if route was calculated before
-        if not os.path.isfile(filename):
-            self.print_log("Route was not calculated before, requesting from API")
-
-            session = requests.Session()
-            payload = {"efficiency": efficiency, "range": ship_range, "from": start_system, "to": end_system}
-            response = session.post("https://www.spansh.co.uk/api/route", data=payload)
-            job = eval(response.text)
-
-            self.print_log("Request sent, waiting for completion")
-
-            if "error" in job:
-                self.print_log(f"ERROR OCCURRED: {job['error']}")
-                return []
-
-            # Wait for job completion
-            while 1:
-                response = session.get("https://www.spansh.co.uk/api/results/" + job["job"])
-                response_dict = json.loads(response.text)
-                if response_dict["status"] == "ok":
-                    self.print_log("Route successfully received")
-                    break
-                time.sleep(1)
-            session.close()
-
-            systems = response_dict["result"]["system_jumps"]
-
-            # Write results to file
-            self.print_log("Saving route")
-
-            with open(filename, "w") as f:
-                json.dump(systems, f, indent=2)
-            self.print_log("Route has been saved")
-
-        else:
-            self.print_log("Found existing route, reading")
-            systems = json.load(open(filename, "r"))
-
-        return systems
-
-    def update_route(self):
-        """Update the progress of the current route"""
-
-        parsed_game_log = self.parse_game_log()
-
-        plotter_data = self.configuration["route"]
-        current_system = self.get_current_system(parsed_game_log)
-
-        next_system, index_current, total_systems, distance, jumps, is_neutron =\
-            self.get_next_route_system(plotter_data, current_system)
-
-        self.update_current_system(current_system)
-
-        if next_system == current_system or not next_system:
-            del self.configuration["route"]
-            self.status_information_frame.update_progress_lbl(index_current, total_systems)
-            self.configuration["last_route_system_index"] = 0
-            self.print_log("Route completed")
-            self.status_information_frame.stop_auto_copy()
-            self.write_config()
-
-        # Update status information
-        if next_system:
-            self.status_information_frame.update_next_system_info(next_system, distance, jumps, is_neutron)
-            self.status_information_frame.update_progress_lbl(index_current, total_systems)
-
-            if self.configuration["last_copied"] != next_system and self.configuration["status"] == "running":
-                self.copy_system_to_clipboard(next_system)
-                self.configuration["last_copied"] = next_system
-        else:
-            self.status_information_frame.reset_information()
-
     def application_loop(self):
-        while 1:
-            try:
-                game_log = self.parse_game_log()
+        """Main loop of application running checks in time intervals of self.poll_rate"""
 
-                commander_name = self.get_commander_name(game_log)
-                if not ("commander_name" in self.configuration and self.configuration["commander_name"] ==
-                        commander_name) and commander_name:
-                    self.status_information_frame.update_cmdr_lbl(commander_name)
-                    self.configuration["commander_name"] = commander_name
-                    self.write_config()
+        def update_commander_name(parsed_log_: list):
+            log_commander_name = utils.get_commander_name(parsed_log_, log_function=self.print_log,
+                                                          verbose=self.verbose)
+            config_commander_name = self.configuration["commander_name"]
 
-                    self.print_log(f"Found commander {commander_name}")
+            if log_commander_name != "" and log_commander_name != config_commander_name:
+                self.configuration["commander_name"] = log_commander_name
 
-                ship_range = self.get_ship_range(game_log)
-                if not ("ship_range" in self.configuration and self.configuration["ship_range"] == ship_range)\
-                        and ship_range:
-                    self.route_selection.jump_range_entry.delete(0, "end")
-                    self.route_selection.jump_range_entry.insert(0, str(ship_range) if ship_range else "")
-                    self.print_log(f"Found jump range {ship_range} LY")
-                    self.configuration["ship_range"] = ship_range
+                self.status_information_frame.update_cmdr_lbl(log_commander_name)
 
-                if "route" in self.configuration and self.configuration["route"]:
+        def update_current_system(parsed_log_: list):
+            log_current_system = utils.get_current_system(parsed_log_, log_function=self.print_log,
+                                                          verbose=self.verbose)
+            config_current_system = self.configuration["current_system"]
 
-                    self.status_information_frame.run_control_button.configure(state="normal")
-                    self.update_route()
+            if log_current_system != "" and log_current_system != config_current_system:
+
+                self.print_log(f"Entered system {log_current_system}")
+
+                self.configuration["current_system"] = log_current_system
+
+                self.route_selection.from_combobox.set(log_current_system)
+                self.route_selection.from_combobox.set_completion_list([log_current_system])
+                self.status_information_frame.update_current_system_lbl(log_current_system)
+
+        def update_ship_build(parsed_log_: list):
+
+            latest_log_loadout_event = None
+            for log_entry in parsed_log_:
+                if log_entry["event"] == "Loadout":
+                    latest_log_loadout_event = log_entry
+
+            config_ship_build = self.configuration["ship_build"]
+
+            if latest_log_loadout_event:
+                if latest_log_loadout_event == config_ship_build[0]:
+                    log_ship_build = config_ship_build[1]
                 else:
-                    self.status_information_frame.run_control_button.configure(state="disabled", text="Auto Copy")
-                    current_system = self.get_current_system(game_log)
+                    log_ship_build = utils.convert_loadout_event_to_coriolis(latest_log_loadout_event)
+            else:
+                log_ship_build = {}
 
-                    self.update_current_system(current_system)
+            if log_ship_build != {} and log_ship_build != config_ship_build:
+                self.configuration["ship_build"] = (latest_log_loadout_event, log_ship_build)
 
+                ship_jump_range = log_ship_build["stats"]["fullTankRange"]
+                self.route_selection.jump_range_entry.delete(0, tk.END)
+                self.route_selection.jump_range_entry.insert(0, ship_jump_range)
+
+        def update_simple_route(route_: list):
+
+            # Get all route systems
+            all_route_systems = []
+            for route_entry in route_:
+                if "system" in route_entry:
+                    all_route_systems.append(route_entry["system"])
+
+            # Get current system from configuration
+            current_system = self.configuration["current_system"]
+
+            # Get next system and next system information
+            if current_system in all_route_systems:
+                # Check if route is completed
+                if current_system == all_route_systems[-1]:
+                    self.print_log("Route completed")
+                    self.configuration["route"] = []
+                    self.status_information_frame.reset_information()
+                    return
+                else:
+                    index_current_system = all_route_systems.index(current_system)
+                    index_next_system = all_route_systems.index(current_system) + 1
+
+                    next_system = all_route_systems[index_next_system]
+                    next_system_distance = round(route_[index_current_system]["distance_left"] -
+                                                 route_[index_next_system]["distance_left"], 2)
+                    next_system_jumps = int(route_[index_next_system]["jumps"])
+                    next_system_is_neutron = str(route_[index_next_system]["neutron_star"])
+
+                    self.configuration["last_route_system"] = current_system
+            else:
+                # Current system is off route
+                index_current_system = all_route_systems.index(self.configuration["last_route_system"])
+                next_system = all_route_systems[index_current_system + 1]
+                next_system_distance = utils.get_distance_between_systems(current_system, next_system,
+                                                                          log_function=self.print_log,
+                                                                          verbose=self.verbose)
+                next_system_is_neutron = route_[all_route_systems.index("next_system")]["neutron_star"]
+                next_system_jumps = round(next_system_distance / self.configuration["ship_build"]["stats"][
+                    "fullTankRange"], 2)
+
+            if next_system:
+                self.status_information_frame.update_next_system_info(next_system, next_system_distance,
+                                                                      next_system_jumps, next_system_is_neutron)
+                self.status_information_frame.update_progress_lbl(index_current_system + 1, len(all_route_systems))
+            else:
+                self.status_information_frame.reset_information()
+
+        while 1:
+            # Parse game log
+            parsed_log = utils.parse_game_log(verbose=self.verbose)
+
+            try:
+                update_commander_name(parsed_log)
+                update_current_system(parsed_log)
+                update_ship_build(parsed_log)
             except RuntimeError:
-                return
+                continue
 
-            if self.configuration["status"] == "exited":
+            if "route" in self.configuration and self.configuration["route"]:
+                update_simple_route(self.configuration["route"])
+
+            if self.configuration["exiting"]:
                 break
 
             time.sleep(self.poll_rate)
 
     def terminate(self):
-        self.configuration["status"] = "exited"
+        self.configuration["exiting"] = True
         self.parent_window.destroy()
 
 
