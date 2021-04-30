@@ -102,7 +102,7 @@ class LogFrame(ttk.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.main_text_box = tk.Text(self, height=7, width=40, wrap="none")
+        self.main_text_box = tk.Text(self, height=7, width=42, wrap="none")
         self.scrollbar_y = ttk.Scrollbar(self, orient="vertical", command=self.main_text_box.yview)
         self.scrollbar_x = ttk.Scrollbar(self, orient="horizontal", command=self.main_text_box.xview)
         self.main_text_box.configure(yscrollcommand=self.scrollbar_y.set, xscrollcommand=self.scrollbar_x.set,
@@ -126,40 +126,36 @@ class SimpleRouteSelection(ttk.Frame):
         self.application = application
 
         # Row 0
-        self.route_calculator_lbl = ttk.Label(self, text="Route Calculator")
-        self.route_calculator_lbl.grid(row=0, column=0, padx=3, pady=2, sticky="W")
-
-        # Row 1
         self.from_lbl = ttk.Label(self, text="From:")
-        self.from_lbl.grid(row=1, column=0, padx=3, pady=2, sticky="E")
+        self.from_lbl.grid(row=0, column=0, padx=3, pady=2, sticky="E")
 
         self.from_combobox = autocomplete.SystemAutocompleteCombobox(self)
-        self.from_combobox.grid(row=1, column=1, columnspan=2, padx=3, pady=2, sticky="W")
+        self.from_combobox.grid(row=0, column=1, columnspan=2, padx=3, pady=2, sticky="W")
 
-        # Row 2
+        # Row 1
         self.to_lbl = ttk.Label(self, text="To:")
-        self.to_lbl.grid(row=2, column=0, padx=3, pady=2, sticky="E")
+        self.to_lbl.grid(row=1, column=0, padx=3, pady=2, sticky="E")
 
         self.to_combobox = autocomplete.SystemAutocompleteCombobox(self)
-        self.to_combobox.grid(row=2, column=1, columnspan=2, padx=3, pady=2, sticky="W")
+        self.to_combobox.grid(row=1, column=1, columnspan=2, padx=3, pady=2, sticky="W")
 
-        # Row 3
+        # Row 2
         self.efficiency_lbl = ttk.Label(self, text="Efficiency:")
-        self.efficiency_lbl.grid(row=3, column=0, padx=3, pady=2, sticky="E")
+        self.efficiency_lbl.grid(row=2, column=0, padx=3, pady=2, sticky="E")
 
         self.efficiency_entry = ttk.Entry(self)
         self.efficiency_entry.insert(0, "60")
-        self.efficiency_entry.grid(row=3, column=1, padx=3, pady=2)
+        self.efficiency_entry.grid(row=2, column=1, padx=3, pady=2)
 
-        # Row 4
+        # Row 3
         self.jump_range_lbl = ttk.Label(self, text="Jump Range:")
-        self.jump_range_lbl.grid(row=4, column=0, padx=3, pady=2, sticky="E")
+        self.jump_range_lbl.grid(row=3, column=0, padx=3, pady=2, sticky="E")
 
         self.jump_range_entry = ttk.Entry(self)
-        self.jump_range_entry.grid(row=4, column=1, padx=3, pady=2)
+        self.jump_range_entry.grid(row=3, column=1, padx=3, pady=2)
 
         self.calculate_button = ttk.Button(self, text="Calculate", command=self.on_calculate_button)
-        self.calculate_button.grid(row=4, column=2, padx=3, pady=2)
+        self.calculate_button.grid(row=3, column=2, padx=3, pady=2)
 
     def calculate_thread(self):
         self.calculate_button.configure(state="disabled")
@@ -197,6 +193,24 @@ class SimpleRouteSelection(ttk.Frame):
         threading.Thread(target=self.calculate_thread).start()
 
 
+class ExactRouteSelection(ttk.Frame):
+    def __init__(self, application, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.application = application
+
+
+class RouteSelection(ttk.Notebook):
+    def __init__(self, application, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.simple_route_selection_tab = SimpleRouteSelection(self, application)
+        self.add(self.simple_route_selection_tab, text="Normal Route")
+
+        self.exact_route_selection_tab = ExactRouteSelection(self, application)
+        self.add(self.exact_route_selection_tab, text="Exact Route")
+
+
 class MainApplication(ttk.Frame):
     def __init__(self, parent_window, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -210,8 +224,11 @@ class MainApplication(ttk.Frame):
         self.log_frame = LogFrame(self)
         self.log_frame.grid(row=1, column=0)
 
-        self.route_selection = SimpleRouteSelection(self, self)
-        self.route_selection.grid(row=2, column=0, sticky="W")
+        self.route_selection_lbl = ttk.Label(self, text="Route Calculator")
+        self.route_selection_lbl.grid(row=2, column=0, sticky="W", pady=4)
+
+        self.route_selection = RouteSelection(self, self)
+        self.route_selection.grid(row=3, column=0, sticky="W")
 
         # Setting variables
         self.verbose = False
@@ -226,7 +243,7 @@ class MainApplication(ttk.Frame):
             pass
 
         self.configuration["current_system"] = ""
-        self.configuration["ship_build"] = ("", "")
+        # self.configuration["ship_build"] = ("", "") todo remember to remove comment
         self.configuration["commander_name"] = ""
 
         self.configuration["exiting"] = False
@@ -298,8 +315,8 @@ class MainApplication(ttk.Frame):
 
                 self.configuration["current_system"] = log_current_system
 
-                self.route_selection.from_combobox.set(log_current_system)
-                self.route_selection.from_combobox.set_completion_list([log_current_system])
+                self.route_selection.simple_route_selection_tab.from_combobox.set(log_current_system)
+                self.route_selection.simple_route_selection_tab.from_combobox.set_completion_list([log_current_system])
                 self.status_information_frame.update_current_system_lbl(log_current_system)
 
         def update_ship_build(parsed_log_: list):
@@ -323,8 +340,8 @@ class MainApplication(ttk.Frame):
                 self.configuration["ship_build"] = (latest_log_loadout_event, log_ship_build)
 
                 ship_jump_range = log_ship_build["stats"]["fullTankRange"]
-                self.route_selection.jump_range_entry.delete(0, tk.END)
-                self.route_selection.jump_range_entry.insert(0, ship_jump_range)
+                self.route_selection.simple_route_selection_tab.jump_range_entry.delete(0, tk.END)
+                self.route_selection.simple_route_selection_tab.jump_range_entry.insert(0, ship_jump_range)
 
         def update_simple_route(route_: list):
 
