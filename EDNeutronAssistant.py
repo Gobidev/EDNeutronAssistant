@@ -368,9 +368,12 @@ class MainApplication(ttk.Frame):
                     "fullTankRange"], 2)
 
             if next_system:
-                self.status_information_frame.update_next_system_info(next_system, next_system_distance,
-                                                                      next_system_jumps, next_system_is_neutron)
-                self.status_information_frame.update_progress_lbl(index_current_system + 1, len(all_route_systems))
+                if next_system != self.configuration["last_copied"]:
+                    self.status_information_frame.update_next_system_info(next_system, next_system_distance,
+                                                                          next_system_jumps, next_system_is_neutron)
+                    self.status_information_frame.update_progress_lbl(index_current_system + 1, len(all_route_systems))
+                    utils.copy_system_to_clipboard(next_system, log_function=self.print_log)
+                    self.configuration["last_copied"] = next_system
             else:
                 self.status_information_frame.reset_information()
 
