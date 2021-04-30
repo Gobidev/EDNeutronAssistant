@@ -40,7 +40,7 @@ setup(
     options={
         "build_exe": {
             "packages": ["os", "sys", "time", "requests", "urllib.parse", "tkinter", "tkinter.ttk", "clipboard", "json",
-                         "threading", "tkinter.messagebox", "webbrowser"],
+                         "threading", "tkinter.messagebox", "webbrowser", "io", "base64", "gzip"],
             "include_files": ["logo.ico"],
             "include_msvcr": True
         },
