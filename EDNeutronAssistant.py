@@ -199,16 +199,78 @@ class ExactRouteSelection(ttk.Frame):
 
         self.application = application
 
+        self.already_supercharged_var = tk.IntVar()
+        self.already_supercharged_var.set(0)
+
+        self.use_supercharge_var = tk.IntVar()
+        self.use_supercharge_var.set(1)
+
+        self.use_injections_var = tk.IntVar()
+        self.use_injections_var.set(0)
+
+        self.exclude_secondary_var = tk.IntVar()
+        self.exclude_secondary_var.set(1)
+
+        # Row 0
+        self.from_lbl = ttk.Label(self, text="From:")
+        self.from_lbl.grid(row=0, column=0, padx=3, pady=2, sticky="E")
+
+        self.from_combobox = autocomplete.SystemAutocompleteCombobox(self)
+        self.from_combobox.grid(row=0, column=1, columnspan=2, padx=3, pady=2, sticky="W")
+
+        # Row 1
+        self.to_lbl = ttk.Label(self, text="To:")
+        self.to_lbl.grid(row=1, column=0, padx=3, pady=2, sticky="E")
+
+        self.to_combobox = autocomplete.SystemAutocompleteCombobox(self)
+        self.to_combobox.grid(row=1, column=1, columnspan=2, padx=3, pady=2, sticky="W")
+
+        # Row 2
+        self.cargo_lbl = ttk.Label(self, text="Cargo:")
+        self.cargo_lbl.grid(row=2, column=0, padx=3, pady=2, sticky="E")
+
+        self.cargo_entry = ttk.Entry(self)
+        self.cargo_entry.insert(0, "0")
+        self.cargo_entry.grid(row=2, column=1, padx=3, pady=2, sticky="W")
+
+        # Row 3
+        self.already_supercharged_lbl = ttk.Label(self, text="Already Supercharged:")
+        self.already_supercharged_lbl.grid(row=3, column=0, padx=3, pady=2, sticky="E")
+
+        self.already_supercharged_check = ttk.Checkbutton(self, variable=self.already_supercharged_var)
+        self.already_supercharged_check.grid(row=3, column=1, padx=3, pady=2, sticky="W")
+
+        # Row 4
+        self.use_supercharge_lbl = ttk.Label(self, text="Use Supercharge:")
+        self.use_supercharge_lbl.grid(row=4, column=0, padx=3, pady=2, sticky="E")
+
+        self.use_supercharge_check = ttk.Checkbutton(self, variable=self.use_supercharge_var)
+        self.use_supercharge_check.grid(row=4, column=1, padx=3, pady=2, sticky="W")
+
+        # Row 5
+        self.use_injections_lbl = ttk.Label(self, text="Use FSD Injections:")
+        self.use_injections_lbl.grid(row=5, column=0, padx=3, pady=2, sticky="E")
+
+        self.use_injections_check = ttk.Checkbutton(self, variable=self.use_injections_var)
+        self.use_injections_check.grid(row=5, column=1, padx=3, pady=2, sticky="W")
+
+        # Row 6
+        self.exclude_secondary_lbl = ttk.Label(self, text="Exclude Secondary Stars:")
+        self.exclude_secondary_lbl.grid(row=6, column=0, padx=3, pady=2, sticky="E")
+
+        self.exclude_secondary_check = ttk.Checkbutton(self, variable=self.exclude_secondary_var)
+        self.exclude_secondary_check.grid(row=6, column=1, padx=3, pady=2, sticky="W")
+
 
 class RouteSelection(ttk.Notebook):
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.simple_route_selection_tab = SimpleRouteSelection(self, application)
-        self.add(self.simple_route_selection_tab, text="Normal Route")
-
         self.exact_route_selection_tab = ExactRouteSelection(self, application)
         self.add(self.exact_route_selection_tab, text="Exact Route")
+
+        self.simple_route_selection_tab = SimpleRouteSelection(self, application)
+        self.add(self.simple_route_selection_tab, text="Normal Route")
 
 
 class MainApplication(ttk.Frame):
@@ -228,7 +290,7 @@ class MainApplication(ttk.Frame):
         self.route_selection_lbl.grid(row=2, column=0, sticky="W", pady=4)
 
         self.route_selection = RouteSelection(self, self)
-        self.route_selection.grid(row=3, column=0, sticky="W")
+        self.route_selection.grid(row=3, column=0, ipadx=40, sticky="W")
 
         # Setting variables
         self.verbose = False
@@ -243,7 +305,8 @@ class MainApplication(ttk.Frame):
             pass
 
         self.configuration["current_system"] = ""
-        # self.configuration["ship_build"] = ("", "") todo remember to remove comment
+        self.configuration["ship_coriolis_build"] = ""
+        self.configuration["jump_range"] = 0
         self.configuration["commander_name"] = ""
 
         self.configuration["exiting"] = False
@@ -317,29 +380,46 @@ class MainApplication(ttk.Frame):
 
                 self.route_selection.simple_route_selection_tab.from_combobox.set(log_current_system)
                 self.route_selection.simple_route_selection_tab.from_combobox.set_completion_list([log_current_system])
+
+                self.route_selection.exact_route_selection_tab.from_combobox.set(log_current_system)
+                self.route_selection.exact_route_selection_tab.from_combobox.set_completion_list([log_current_system])
+
                 self.status_information_frame.update_current_system_lbl(log_current_system)
 
         def update_ship_build(parsed_log_: list):
 
             latest_log_loadout_event = None
-            for log_entry in parsed_log_:
+            for log_entry in reversed(parsed_log_):
                 if log_entry["event"] == "Loadout":
                     latest_log_loadout_event = log_entry
+                    break
 
-            config_ship_build = self.configuration["ship_build"]
+            config_ship_jump_range = self.configuration["jump_range"]
 
+            new_ship_build = None
+
+            # Check if loadout event was found
             if latest_log_loadout_event:
-                if latest_log_loadout_event == config_ship_build[0]:
-                    log_ship_build = config_ship_build[1]
+
+                # Check if newest loadout has different jump range
+                if utils.test_if_builds_has_jump_range(latest_log_loadout_event, config_ship_jump_range):
+                    # Jump ranges are equal, no new ship
+                    return
                 else:
-                    log_ship_build = utils.convert_loadout_event_to_coriolis(latest_log_loadout_event)
+                    # New ship build
+                    self.configuration["jump_range"] = round(latest_log_loadout_event["MaxJumpRange"], 2)
+
+                    # Convert build to coriolis build
+                    new_ship_build = utils.convert_loadout_event_to_coriolis(latest_log_loadout_event)
             else:
-                log_ship_build = {}
+                pass
+                # todo
 
-            if log_ship_build != {} and log_ship_build != config_ship_build:
-                self.configuration["ship_build"] = (latest_log_loadout_event, log_ship_build)
+            if new_ship_build:
+                self.configuration["ship_coriolis_build"] = new_ship_build
+                self.write_config()
 
-                ship_jump_range = log_ship_build["stats"]["fullTankRange"]
+                ship_jump_range = new_ship_build["stats"]["fullTankRange"]
                 self.route_selection.simple_route_selection_tab.jump_range_entry.delete(0, tk.END)
                 self.route_selection.simple_route_selection_tab.jump_range_entry.insert(0, ship_jump_range)
 
