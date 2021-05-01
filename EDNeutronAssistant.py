@@ -154,8 +154,9 @@ class SimpleRouteSelection(ttk.Frame):
         self.jump_range_entry = ttk.Entry(self)
         self.jump_range_entry.grid(row=3, column=1, padx=3, pady=2)
 
+        # Row 4
         self.calculate_button = ttk.Button(self, text="Calculate", command=self.on_calculate_button)
-        self.calculate_button.grid(row=3, column=2, padx=3, pady=2)
+        self.calculate_button.grid(row=4, column=0, padx=3, pady=2)
 
     def calculate_thread(self):
         self.calculate_button.configure(state="disabled")
@@ -261,15 +262,62 @@ class ExactRouteSelection(ttk.Frame):
         self.exclude_secondary_check = ttk.Checkbutton(self, variable=self.exclude_secondary_var)
         self.exclude_secondary_check.grid(row=6, column=1, padx=3, pady=2, sticky="W")
 
+        # Row 7
+        self.calculate_button = ttk.Button(self, text="Calculate", command=self.on_calculate_button)
+        self.calculate_button.grid(row=7, column=0, padx=3, pady=2)
+
+    def calculate_thread(self):
+        self.calculate_button.configure(state="disabled")
+
+        # Get values from ui
+        from_system = self.from_combobox.get()
+        to_system = self.to_combobox.get()
+        cargo = self.cargo_entry.get()
+        already_supercharged = True if self.already_supercharged_var.get() else False
+        use_supercharge = True if self.use_supercharge_var.get() else False
+        use_injections = True if self.use_injections_var.get() else False
+        exclude_secondary = True if self.exclude_secondary_var.get() else False
+
+        ship_build = self.application.configuration["ship_coriolis_build"]
+
+        try:
+            cargo = int(cargo)
+        except ValueError:
+            self.application.print_log("Invalid input")
+            self.calculate_button.configure(state="normal")
+            return
+
+        if not (from_system and to_system):
+            self.application.print_log("Invalid input")
+            self.calculate_button.configure(state="normal")
+            return
+
+        route_systems = utils.calc_exact_neutron_route(from_system, from_system, ship_build, cargo,
+                                                       already_supercharged, use_supercharge, use_injections,
+                                                       exclude_secondary, config_path=self.application.config_path,
+                                                       log_function=self.application.print_log)
+
+        self.calculate_button.configure(state="normal")
+
+        if len(route_systems) == 0:
+            return
+
+        self.application.print_log(f"Loaded route of {len(route_systems)} systems")
+        self.application.configuration["route"] = route_systems
+        self.application.write_config()
+
+    def on_calculate_button(self):
+        threading.Thread(target=self.calculate_thread).start()
+
 
 class RouteSelection(ttk.Notebook):
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.exact_route_selection_tab = ExactRouteSelection(self, application)
+        self.exact_route_selection_tab = ExactRouteSelection(application)
         self.add(self.exact_route_selection_tab, text="Exact Route")
 
-        self.simple_route_selection_tab = SimpleRouteSelection(self, application)
+        self.simple_route_selection_tab = SimpleRouteSelection(application)
         self.add(self.simple_route_selection_tab, text="Normal Route")
 
 
