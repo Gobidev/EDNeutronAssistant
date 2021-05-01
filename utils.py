@@ -161,6 +161,12 @@ def parse_plotter_csv(filename: str, log_function=print) -> list:
     return output
 
 
+def test_if_builds_has_jump_range(build: dict, jump_range: float) -> bool:
+    """Test if two builds are equal based on their jump range"""
+
+    return True if round(build["MaxJumpRange"], 2) == jump_range else False
+
+
 def get_distance_between_systems(system1: str, system2: str, log_function=print, verbose=False) -> float:
     """Calculate the distance between two systems using the EDSM API"""
 
@@ -334,12 +340,12 @@ def calc_exact_neutron_route(start_system: str, end_system: str, ship_coriolis_b
         return fsd_fuel_usage
 
     def calculate_range_boost(coriolis_build: dict) -> float:
-        rating_boost_dict = {"1": 4.0, "2": 6.0, "3": 7.8, "4": 9.3, "5": 10.5}
+        class_boost_dict = {"1": 4.0, "2": 6.0, "3": 7.8, "4": 9.3, "5": 10.5}
 
         boost = 0.0
         for module in coriolis_build["components"]["internal"]:
             if module and "group" in module and module["group"] == "Guardian Frame Shift Drive Booster":
-                boost = rating_boost_dict[str(module["class"])]
+                boost = class_boost_dict[str(module["class"])]
 
         return boost
 
