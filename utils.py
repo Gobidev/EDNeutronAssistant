@@ -65,7 +65,7 @@ def parse_game_log(log_function=print, verbose=False) -> list:
         return []
 
 
-def get_current_system(entries_parsed: list, log_function=print, verbose=False) -> str:
+def get_current_system_from_log(entries_parsed: list, log_function=print, verbose=False) -> str:
     """Return name of the last star system the commander visited"""
 
     if verbose:
@@ -89,7 +89,7 @@ def get_current_system(entries_parsed: list, log_function=print, verbose=False) 
     return current_system
 
 
-def get_commander_name(entries_parsed: list, log_function=print, verbose=False) -> str:
+def get_commander_name_from_log(entries_parsed: list, log_function=print, verbose=False) -> str:
     """Parse log file for commander name"""
 
     if verbose:
@@ -112,6 +112,18 @@ def get_commander_name(entries_parsed: list, log_function=print, verbose=False) 
             log_function("No commander name found")
 
     return commander_name
+
+
+def get_latest_loadout_event_from_log(entries_parsed: list) -> dict:
+    """Parse game log for loadout events and return newest"""
+
+    latest_log_loadout_event = None
+    for log_entry in reversed(entries_parsed):
+        if log_entry["event"] == "Loadout":
+            latest_log_loadout_event = log_entry
+            break
+
+    return latest_log_loadout_event
 
 
 def get_approx_ship_range(entries_parsed: list, log_function=print, verbose=False) -> float:
