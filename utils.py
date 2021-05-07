@@ -239,6 +239,10 @@ def copy_system_to_clipboard(system: str, log_function=print):
     log_function(f"Copied system {system} to clipboard")
 
 
+def convert_system_name_for_file(system_name: str) -> str:
+    return system_name.replace(" ", "_").replace("*", "")
+
+
 def calc_simple_neutron_route(efficiency: int, ship_range: float, start_system: str, end_system: str,
                               config_path: str, log_function=print) -> list:
     """Use the Spansh API to calculate a neutron star route"""
@@ -250,7 +254,7 @@ def calc_simple_neutron_route(efficiency: int, ship_range: float, start_system: 
         os.mkdir(config_path + "\\routes")
 
     filename = f"{config_path}\\routes\\NeutronAssistantSimpleRoute-{efficiency}-{ship_range}-" \
-               f"{start_system.replace(' ', '_')}-{end_system.replace(' ', '_')}.json"
+               f"{convert_system_name_for_file(start_system)}-{convert_system_name_for_file(end_system)}.json"
 
     # Test if route was calculated before
     if not os.path.isfile(filename):
@@ -367,8 +371,10 @@ def calc_exact_neutron_route(start_system: str, end_system: str, ship_coriolis_b
         os.mkdir(config_path + "\\routes")
 
     ship_code_hash = hashlib.md5(ship_coriolis_build["references"][0]["code"].encode("utf-8")).hexdigest()[:5]
-    filename = f"{config_path}\\routes\\NeutronAssistantExactRoute--{start_system.replace(' ', '_')}-" \
-               f"{end_system.replace(' ', '_')}-{ship_code_hash}-{cargo}-{'Y' if already_supercharged else 'N'}-" \
+    filename = f"{config_path}\\routes\\NeutronAssistantExactRoute--" \
+               f"{convert_system_name_for_file(start_system)}-" \
+               f"{convert_system_name_for_file(end_system)}-{ship_code_hash}-{cargo}-" \
+               f"{'Y' if already_supercharged else 'N'}-" \
                f"{'Y' if use_supercharge else 'N'}-{'Y' if use_injections else 'N'}-" \
                f"{'Y' if exclude_secondary_stars else 'N'}.json "
 
