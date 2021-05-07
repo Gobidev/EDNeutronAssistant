@@ -28,10 +28,10 @@ def update_available() -> (bool, str):
 
 
 class StatusInformation(ttk.Frame):
-    def __init__(self, application, *args, **kwargs):
+    def __init__(self, master, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.application = application
+        self.master = master
 
         # Row 0
         self.cmdr_lbl = ttk.Label(self, text="CMDR:")
@@ -120,10 +120,10 @@ class LogFrame(ttk.Frame):
 
 
 class SimpleRouteSelection(ttk.Frame):
-    def __init__(self, application, *args, **kwargs):
+    def __init__(self, master, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.application = application
+        self.master = master
 
         # Row 0
         self.from_lbl = ttk.Label(self, text="From:")
@@ -168,37 +168,37 @@ class SimpleRouteSelection(ttk.Frame):
             efficiency = int(self.efficiency_entry.get())
             jump_range = float(self.jump_range_entry.get())
         except ValueError:
-            self.application.print_log("Invalid input")
+            self.master.print_log("Invalid input")
             self.calculate_button.configure(state="normal")
             return
 
         if not (from_system and to_system):
-            self.application.print_log("Invalid input")
+            self.master.print_log("Invalid input")
             self.calculate_button.configure(state="normal")
             return
 
         route_systems = utils.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system,
-                                                        self.application.config_path,
-                                                        log_function=self.application.print_log)
+                                                        self.master.config_path,
+                                                        log_function=self.master.print_log)
 
         self.calculate_button.configure(state="normal")
 
         if len(route_systems) == 0:
             return
 
-        self.application.print_log(f"Loaded route of {len(route_systems)} systems")
-        self.application.configuration["route"] = route_systems
-        self.application.write_config()
+        self.master.print_log(f"Loaded route of {len(route_systems)} systems")
+        self.master.configuration["route"] = route_systems
+        self.master.write_config()
 
     def on_calculate_button(self):
         threading.Thread(target=self.calculate_thread).start()
 
 
 class ExactRouteSelection(ttk.Frame):
-    def __init__(self, application, *args, **kwargs):
+    def __init__(self, master, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.application = application
+        self.master = master
 
         self.already_supercharged_var = tk.IntVar()
         self.already_supercharged_var.set(0)
@@ -278,47 +278,58 @@ class ExactRouteSelection(ttk.Frame):
         use_injections = True if self.use_injections_var.get() else False
         exclude_secondary = True if self.exclude_secondary_var.get() else False
 
-        ship_build = self.application.configuration["ship_coriolis_build"]
+        ship_build = self.master.configuration["ship_coriolis_build"]
 
         try:
             cargo = int(cargo)
         except ValueError:
-            self.application.print_log("Invalid input")
+            self.master.print_log("Invalid input")
             self.calculate_button.configure(state="normal")
             return
 
         if not (from_system and to_system):
-            self.application.print_log("Invalid input")
+            self.master.print_log("Invalid input")
             self.calculate_button.configure(state="normal")
             return
 
         route_systems = utils.calc_exact_neutron_route(from_system, from_system, ship_build, cargo,
                                                        already_supercharged, use_supercharge, use_injections,
-                                                       exclude_secondary, config_path=self.application.config_path,
-                                                       log_function=self.application.print_log)
+                                                       exclude_secondary, config_path=self.master.config_path,
+                                                       log_function=self.master.print_log)
 
         self.calculate_button.configure(state="normal")
 
         if len(route_systems) == 0:
             return
 
-        self.application.print_log(f"Loaded route of {len(route_systems)} systems")
-        self.application.configuration["route"] = route_systems
-        self.application.write_config()
+        self.master.print_log(f"Loaded route of {len(route_systems)} systems")
+        self.master.configuration["route"] = route_systems
+        self.master.write_config()
 
     def on_calculate_button(self):
         threading.Thread(target=self.calculate_thread).start()
 
 
+def on_tab_changed(event):
+    """Used in ttk Notebooks to resize height to current frame height"""
+
+    event.widget.update_idletasks()
+
+    tab = event.widget.nametowidget(event.widget.select())
+    event.widget.configure(height=tab.winfo_reqheight())
+
+
 class RouteSelection(ttk.Notebook):
-    def __init__(self, application, *args, **kwargs):
+    def __init__(self, master, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.exact_route_selection_tab = ExactRouteSelection(application)
-        self.add(self.exact_route_selection_tab, text="Exact Route")
+        self.bind("<<NotebookTabChanged>>", on_tab_changed)
 
-        self.simple_route_selection_tab = SimpleRouteSelection(application)
-        self.add(self.simple_route_selection_tab, text="Normal Route")
+        self.simple_route_selection_tab = SimpleRouteSelection(master)
+        self.add(self.simple_route_selection_tab, text="Neutron Route")
+
+        self.exact_route_selection_tab = ExactRouteSelection(master)
+        self.add(self.exact_route_selection_tab, text="Exact Route")
 
 
 class MainApplication(ttk.Frame):
@@ -345,17 +356,17 @@ class MainApplication(ttk.Frame):
         self.poll_rate = 1
         self.config_path = os.path.join(os.getenv("APPDATA"), "EDNeutronAssistant")
 
-        self.configuration = {}
+        self.configuration = {"current_system": "", "ship_coriolis_build": {}, "jump_range_coriolis": 0,
+                              "jump_range_log": 0, "commander_name": ""}
 
         try:
             self.configuration = json.load(open(self.config_path + "\\config.json", "r"))
         except FileNotFoundError:
             pass
 
-        self.configuration["current_system"] = ""
-        self.configuration["ship_coriolis_build"] = ""
-        self.configuration["jump_range"] = 0
-        self.configuration["commander_name"] = ""
+        self.configuration["current_system_display"] = ""
+        self.configuration["jump_range_coriolis_display"] = 0
+        self.configuration["commander_name_display"] = ""
 
         self.configuration["exiting"] = False
         self.configuration["last_copied"] = ""
@@ -406,70 +417,121 @@ class MainApplication(ttk.Frame):
         """Main loop of application running checks in time intervals of self.poll_rate"""
 
         def update_commander_name(parsed_log_: list):
-            log_commander_name = utils.get_commander_name(parsed_log_, log_function=self.print_log,
-                                                          verbose=self.verbose)
-            config_commander_name = self.configuration["commander_name"]
 
-            if log_commander_name != "" and log_commander_name != config_commander_name:
-                self.configuration["commander_name"] = log_commander_name
-
+            def set_commander_name(name: str):
                 self.status_information_frame.update_cmdr_lbl(log_commander_name)
+                self.configuration["commander_name_display"] = name
+                self.configuration["commander_name"] = name
+                self.write_config()
+
+            log_commander_name = utils.get_commander_name_from_log(parsed_log_, log_function=self.print_log,
+                                                                   verbose=self.verbose)
+            config_commander_name = self.configuration["commander_name"]
+            displayed_commander_name = self.configuration["commander_name_display"]
+
+            # case 1: log commander name is not blank
+            # -> if name not already displayed, set log name
+            if log_commander_name != "":
+                if displayed_commander_name != log_commander_name:
+                    set_commander_name(log_commander_name)
+
+            # case 2: log commander name is blank
+            # -> if name not already displayed, set config name
+            else:
+                if displayed_commander_name != config_commander_name:
+                    set_commander_name(config_commander_name)
 
         def update_current_system(parsed_log_: list):
-            log_current_system = utils.get_current_system(parsed_log_, log_function=self.print_log,
-                                                          verbose=self.verbose)
+
+            def set_current_system(system: str):
+                self.print_log(f"Entered system {system}")
+
+                # Update configuration
+                self.configuration["current_system"] = system
+                self.configuration["current_system_display"] = system
+
+                self.write_config()
+
+                # Update simple route start system
+                self.route_selection.simple_route_selection_tab.from_combobox.set(system)
+                self.route_selection.simple_route_selection_tab.from_combobox.set_completion_list([system])
+
+                # Update exact route start system
+                self.route_selection.exact_route_selection_tab.from_combobox.set(system)
+                self.route_selection.exact_route_selection_tab.from_combobox.set_completion_list([system])
+
+                # Update status information current system
+                self.status_information_frame.update_current_system_lbl(system)
+
+            log_current_system = utils.get_current_system_from_log(parsed_log_, log_function=self.print_log,
+                                                                   verbose=self.verbose)
             config_current_system = self.configuration["current_system"]
+            displayed_current_system = self.configuration["current_system_display"]
 
-            if log_current_system != "" and log_current_system != config_current_system:
+            # case 1: log current system is not blank
+            # -> if not already set, set log current system
+            if log_current_system != "":
+                if displayed_current_system != log_current_system:
+                    set_current_system(log_current_system)
 
-                self.print_log(f"Entered system {log_current_system}")
-
-                self.configuration["current_system"] = log_current_system
-
-                self.route_selection.simple_route_selection_tab.from_combobox.set(log_current_system)
-                self.route_selection.simple_route_selection_tab.from_combobox.set_completion_list([log_current_system])
-
-                self.route_selection.exact_route_selection_tab.from_combobox.set(log_current_system)
-                self.route_selection.exact_route_selection_tab.from_combobox.set_completion_list([log_current_system])
-
-                self.status_information_frame.update_current_system_lbl(log_current_system)
+            # case 2: log current system is blank
+            # ->  if not already set, set config current system
+            else:
+                if displayed_current_system != config_current_system:
+                    set_current_system(config_current_system)
 
         def update_ship_build(parsed_log_: list):
 
-            latest_log_loadout_event = None
-            for log_entry in reversed(parsed_log_):
-                if log_entry["event"] == "Loadout":
-                    latest_log_loadout_event = log_entry
-                    break
+            def set_new_ship_build(loadout_event: dict):
 
-            config_ship_jump_range = self.configuration["jump_range"]
+                # Convert build to coriolis build
+                build = utils.convert_loadout_event_to_coriolis(loadout_event)
+                jump_range_coriolis = build["stats"]["fullTankRange"]
 
-            new_ship_build = None
+                self.configuration["ship_coriolis_build"] = build
+                self.configuration["jump_range_coriolis"] = jump_range_coriolis
+                self.configuration["jump_range_coriolis_display"] = jump_range_coriolis
+                self.configuration["jump_range_log"] = round(loadout_event["MaxJumpRange"], 2)
 
-            # Check if loadout event was found
-            if latest_log_loadout_event:
-
-                # Check if newest loadout has different jump range
-                if utils.test_if_builds_has_jump_range(latest_log_loadout_event, config_ship_jump_range):
-                    # Jump ranges are equal, no new ship
-                    return
-                else:
-                    # New ship build
-                    self.configuration["jump_range"] = round(latest_log_loadout_event["MaxJumpRange"], 2)
-
-                    # Convert build to coriolis build
-                    new_ship_build = utils.convert_loadout_event_to_coriolis(latest_log_loadout_event)
-            else:
-                pass
-                # todo
-
-            if new_ship_build:
-                self.configuration["ship_coriolis_build"] = new_ship_build
                 self.write_config()
 
-                ship_jump_range = new_ship_build["stats"]["fullTankRange"]
+                # Update default jump range in simple neutron route calculator
                 self.route_selection.simple_route_selection_tab.jump_range_entry.delete(0, tk.END)
-                self.route_selection.simple_route_selection_tab.jump_range_entry.insert(0, ship_jump_range)
+                self.route_selection.simple_route_selection_tab.jump_range_entry.insert(0, jump_range_coriolis)
+
+            def update_displayed_jump_range(jump_range: float):
+                self.configuration["jump_range_coriolis_display"] = jump_range
+
+                # Update default jump range in simple neutron route calculator
+                self.route_selection.simple_route_selection_tab.jump_range_entry.delete(0, tk.END)
+                self.route_selection.simple_route_selection_tab.jump_range_entry.insert(0, jump_range)
+
+            # To test if the ship build has changed, we compare the "MaxJumpRange" attribute of the game log, to avoid
+            # unnecessary conversions to coriolis builds
+
+            latest_log_loadout_event = utils.get_latest_loadout_event_from_log(parsed_log_)
+            config_coriolis_build = self.configuration["ship_coriolis_build"]
+            config_ship_log_range = self.configuration["jump_range_log"]
+            displayed_ship_jump_range = self.configuration["jump_range_coriolis_display"]
+
+            # case 1: no log loadout events were found
+            # -> if configuration contains coriolis build, use it to update display
+            if not latest_log_loadout_event:
+                if config_coriolis_build:
+                    config_coriolis_build_jump_range = config_coriolis_build["stats"]["fullTankRange"]
+                    if config_coriolis_build_jump_range != displayed_ship_jump_range:
+                        update_displayed_jump_range(config_coriolis_build_jump_range)
+
+            # case 2: log loadout event was found
+            # -> compare log jump range to config log jump range, if not equal, update build
+            else:
+                new_build_log_jump_range = round(latest_log_loadout_event["MaxJumpRange"], 2)
+                if new_build_log_jump_range != config_ship_log_range:
+                    set_new_ship_build(latest_log_loadout_event)
+
+                # If jump range was not displayed yet, set saved coriolis range
+                elif not displayed_ship_jump_range:
+                    update_displayed_jump_range(config_coriolis_build["stats"]["fullTankRange"])
 
         def update_simple_route(route_: list):
 
@@ -570,7 +632,7 @@ if __name__ == '__main__':
     # Exit program when closing
     root.protocol("WM_DELETE_WINDOW", ed_neutron_assistant.terminate)
 
-    # Checking for update
+    # Check for update
     ed_neutron_assistant.print_log("Checking GitHub for updates")
     update, version = update_available()
 
