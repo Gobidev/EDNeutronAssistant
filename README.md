@@ -9,10 +9,10 @@ since then, I decided to rework the project from scratch rather than continuing 
 This application is in comparison to its predecessor already in a very stable state, although there may still be some
 crashes and bugs.
 
-### Planned Features
+## Planned Features
 
-- Implementation of the [exact spansh plotter](https://www.spansh.co.uk/exact-plotter)
-- [Chcolatey](https://chocolatey.org/) support
+- Implementation of other Spansh plotters
+- UI redesign
 
 ## Usage
 Download the latest build from the [Releases Tab](https://github.com/Gobidev/EDNeutronAssistant/releases/).
