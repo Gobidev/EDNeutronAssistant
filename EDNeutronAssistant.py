@@ -74,6 +74,13 @@ class StatusInformation(ttk.Frame):
         self.next_system_information_lbl_content = ttk.Label(self, text="")
         self.next_system_information_lbl_content.grid(row=4, column=1, columnspan=3, padx=3, pady=2, sticky="W")
 
+        # Row 5
+        self.destination_information_lbl = ttk.Label(self, text="Destination:")
+        self.destination_information_lbl.grid(row=5, column=0, padx=3, pady=2, sticky="E")
+
+        self.destination_information_lbl_content = ttk.Label(self, text="")
+        self.destination_information_lbl_content.grid(row=5, column=1, padx=3, pady=2, sticky="W")
+
     def update_cmdr_lbl(self, new_name: str):
         self.cmdr_lbl_content.configure(text=new_name)
 
@@ -86,19 +93,24 @@ class StatusInformation(ttk.Frame):
                                                                 f"{'Jumps' if jumps > 1 else 'Jump'}   Neutron: "
                                                                 f"{'yes' if is_neutron else 'no'}")
 
-    def update_progress_lbl(self, current, total):
+    def update_progress_lbl(self, current: int, total: int):
         progress_percentage = round((current - 1) / (total - 1) * 100, 2)
         self.progress_lbl_content.configure(text=f"[{current}/{total}]")
         self.progress_bar.configure(value=progress_percentage)
         self.progress_percentage.configure(text=f"{progress_percentage}%")
 
+    def set_destination(self, destination: str):
+        self.destination_information_lbl_content.configure(text=destination)
+
     def reset_information(self):
         self.next_system_lbl_content.configure(text="")
         self.next_system_information_lbl_content.configure(text="")
         self.progress_lbl_content.configure(text="")
+        self.destination_information_lbl_content.configure(text="")
 
 
 class LogFrame(ttk.Frame):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -159,7 +171,7 @@ class SimpleRouteSelection(ttk.Frame):
         self.calculate_button.grid(row=4, column=0, padx=3, pady=2)
 
     def calculate_thread(self):
-        self.calculate_button.configure(state="disabled")
+        self.master.change_state_of_all_calculate_buttons("disabled")
 
         # Get values from ui
         from_system = self.from_combobox.get()
@@ -169,25 +181,26 @@ class SimpleRouteSelection(ttk.Frame):
             jump_range = float(self.jump_range_entry.get())
         except ValueError:
             self.master.print_log("Invalid input")
-            self.calculate_button.configure(state="normal")
+            self.master.change_state_of_all_calculate_buttons("normal")
             return
 
         if not (from_system and to_system):
             self.master.print_log("Invalid input")
-            self.calculate_button.configure(state="normal")
+            self.master.change_state_of_all_calculate_buttons("normal")
             return
 
         route_systems = utils.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system,
                                                         self.master.config_path,
                                                         log_function=self.master.print_log)
 
-        self.calculate_button.configure(state="normal")
+        self.master.change_state_of_all_calculate_buttons("normal")
 
         if len(route_systems) == 0:
             return
 
         self.master.print_log(f"Loaded route of {len(route_systems)} systems")
         self.master.configuration["route"] = route_systems
+        self.master.configuration["route_type"] = "simple"
         self.master.write_config()
 
     def on_calculate_button(self):
@@ -264,10 +277,10 @@ class ExactRouteSelection(ttk.Frame):
 
         # Row 7
         self.calculate_button = ttk.Button(self, text="Calculate", command=self.on_calculate_button)
-        self.calculate_button.grid(row=7, column=0, padx=3, pady=2)
+        self.calculate_button.grid(row=7, column=0, padx=3, pady=2, sticky="W")
 
     def calculate_thread(self):
-        self.calculate_button.configure(state="disabled")
+        self.master.change_state_of_all_calculate_buttons("disabled")
 
         # Get values from ui
         from_system = self.from_combobox.get()
@@ -284,26 +297,27 @@ class ExactRouteSelection(ttk.Frame):
             cargo = int(cargo)
         except ValueError:
             self.master.print_log("Invalid input")
-            self.calculate_button.configure(state="normal")
+            self.master.change_state_of_all_calculate_buttons("normal")
             return
 
         if not (from_system and to_system):
             self.master.print_log("Invalid input")
-            self.calculate_button.configure(state="normal")
+            self.master.change_state_of_all_calculate_buttons("normal")
             return
 
-        route_systems = utils.calc_exact_neutron_route(from_system, from_system, ship_build, cargo,
+        route_systems = utils.calc_exact_neutron_route(from_system, to_system, ship_build, cargo,
                                                        already_supercharged, use_supercharge, use_injections,
                                                        exclude_secondary, config_path=self.master.config_path,
                                                        log_function=self.master.print_log)
 
-        self.calculate_button.configure(state="normal")
+        self.master.change_state_of_all_calculate_buttons("normal")
 
         if len(route_systems) == 0:
             return
 
         self.master.print_log(f"Loaded route of {len(route_systems)} systems")
         self.master.configuration["route"] = route_systems
+        self.master.configuration["route_type"] = "exact"
         self.master.write_config()
 
     def on_calculate_button(self):
@@ -413,13 +427,17 @@ class MainApplication(ttk.Frame):
         if self.verbose:
             self.print_log("Saved configuration to file")
 
+    def change_state_of_all_calculate_buttons(self, state: str):
+        self.route_selection.simple_route_selection_tab.calculate_button.configure(state=state)
+        self.route_selection.exact_route_selection_tab.calculate_button.configure(state=state)
+
     def application_loop(self):
         """Main loop of application running checks in time intervals of self.poll_rate"""
 
         def update_commander_name(parsed_log_: list):
 
             def set_commander_name(name: str):
-                self.status_information_frame.update_cmdr_lbl(log_commander_name)
+                self.status_information_frame.update_cmdr_lbl(name)
                 self.configuration["commander_name_display"] = name
                 self.configuration["commander_name"] = name
                 self.write_config()
@@ -544,12 +562,15 @@ class MainApplication(ttk.Frame):
             # Get current system from configuration
             current_system = self.configuration["current_system"]
 
+            destination = all_route_systems[-1]
+
             # Get next system and next system information
             if current_system in all_route_systems:
                 # Check if route is completed
                 if current_system == all_route_systems[-1]:
                     self.print_log("Route completed")
                     self.configuration["route"] = []
+                    self.status_information_frame.update_progress_lbl(len(all_route_systems), len(all_route_systems))
                     self.status_information_frame.reset_information()
                     return
                 else:
@@ -560,7 +581,7 @@ class MainApplication(ttk.Frame):
                     next_system_distance = round(route_[index_current_system]["distance_left"] -
                                                  route_[index_next_system]["distance_left"], 2)
                     next_system_jumps = int(route_[index_next_system]["jumps"])
-                    next_system_is_neutron = str(route_[index_next_system]["neutron_star"])
+                    next_system_is_neutron = route_[index_next_system]["neutron_star"]
 
                     self.configuration["last_route_system"] = current_system
             else:
@@ -579,6 +600,61 @@ class MainApplication(ttk.Frame):
                     self.status_information_frame.update_next_system_info(next_system, next_system_distance,
                                                                           next_system_jumps, next_system_is_neutron)
                     self.status_information_frame.update_progress_lbl(index_current_system + 1, len(all_route_systems))
+                    self.status_information_frame.set_destination(destination)
+                    utils.copy_system_to_clipboard(next_system, log_function=self.print_log)
+                    self.configuration["last_copied"] = next_system
+            else:
+                self.status_information_frame.reset_information()
+
+        def update_exact_route(route_):
+            # Get all route systems
+            all_route_systems = []
+            for route_entry in route_:
+                if "name" in route_entry:
+                    all_route_systems.append(route_entry["name"])
+
+            # Get current system from configuration
+            current_system = self.configuration["current_system"]
+
+            destination = all_route_systems[-1]
+
+            # Get next system and next system information
+            if current_system in all_route_systems:
+                # Check if route is completed
+                if current_system == all_route_systems[-1]:
+                    self.print_log("Route completed")
+                    self.configuration["route"] = []
+                    self.status_information_frame.update_progress_lbl(len(all_route_systems), len(all_route_systems))
+                    self.status_information_frame.reset_information()
+                    return
+                else:
+                    index_current_system = all_route_systems.index(current_system)
+                    index_next_system = all_route_systems.index(current_system) + 1
+
+                    next_system = all_route_systems[index_next_system]
+                    next_system_distance = round(route_[index_current_system]["distance_to_destination"] -
+                                                 route_[index_next_system]["distance_to_destination"], 2)
+                    next_system_jumps = 1
+                    next_system_is_neutron = route_[index_next_system]["has_neutron"]
+
+                    self.configuration["last_route_system"] = current_system
+            else:
+                # Current system is off route
+                index_current_system = all_route_systems.index(self.configuration["last_route_system"])
+                next_system = all_route_systems[index_current_system + 1]
+                next_system_distance = utils.get_distance_between_systems(current_system, next_system,
+                                                                          log_function=self.print_log,
+                                                                          verbose=self.verbose)
+                next_system_is_neutron = route_[all_route_systems.index("next_system")]["has_neutron"]
+                next_system_jumps = round(next_system_distance / self.configuration["ship_build"]["stats"][
+                    "fullTankRange"], 2)
+
+            if next_system:
+                if next_system != self.configuration["last_copied"]:
+                    self.status_information_frame.update_next_system_info(next_system, next_system_distance,
+                                                                          next_system_jumps, next_system_is_neutron)
+                    self.status_information_frame.update_progress_lbl(index_current_system + 1, len(all_route_systems))
+                    self.status_information_frame.set_destination(destination)
                     utils.copy_system_to_clipboard(next_system, log_function=self.print_log)
                     self.configuration["last_copied"] = next_system
             else:
@@ -596,7 +672,10 @@ class MainApplication(ttk.Frame):
                 continue
 
             if "route" in self.configuration and self.configuration["route"]:
-                update_simple_route(self.configuration["route"])
+                if self.configuration["route_type"] == "simple":
+                    update_simple_route(self.configuration["route"])
+                elif self.configuration["route_type"] == "exact":
+                    update_exact_route(self.configuration["route"])
 
             if self.configuration["exiting"]:
                 break
