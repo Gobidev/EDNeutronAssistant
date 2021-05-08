@@ -11,6 +11,7 @@ crashes and bugs.
 
 ## Planned Features
 
+- Linux Steam Play support
 - Implementation of other Spansh plotters
 - UI redesign
 
