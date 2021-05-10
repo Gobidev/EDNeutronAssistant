@@ -22,6 +22,8 @@ Running the program on Windows is as easy as downloading the latest standalone E
 [releases tab](https://github.com/Gobidev/EDNeutronAssistant/releases/) and running it.
 
 ### Linux
+Note: EDNeutronAssistant is still a bit unstable on linux, but support will improve over time.
+
 To run the program on linux, you can follow these steps:
 
 - Install Python 3.9 (older versions might work, but not tested)
