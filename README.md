@@ -9,10 +9,10 @@ The main features of this program are easy calculation of Neutron Highways and a
 the route to the clipboard to avoid the need to tab out of the game in every system.
 
 ## Planned Features
-- [] Linux Steam Play support
-- [] Implementation of other Spansh plotters
-- [] dark mode
-- [] UI redesign
+- [ ] Linux Steam Play support
+- [ ] Implementation of other Spansh plotters
+- [ ] dark mode
+- [ ] UI redesign
 
 ## Installation
 
