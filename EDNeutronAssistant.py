@@ -12,7 +12,7 @@ import threading
 import autocomplete
 import utils
 
-__version__ = "v2.0"
+__version__ = "v2.1"
 
 
 def update_available() -> (bool, str):
