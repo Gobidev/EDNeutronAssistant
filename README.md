@@ -29,7 +29,7 @@ To run the program on linux, you can follow these steps:
 
     **Debian-based distros (Ubuntu, Linux MINT, etc.):**
 
-    `$ sudo apt install python3 python3-pip python3-tkinter xsel git`
+    `$ sudo apt install python3 python3-pip python3-tk xsel git`
 
     **RHEL-based distros (Fedora, etc.):**
 
