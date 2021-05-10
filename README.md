@@ -50,3 +50,7 @@ based on your current ship build, so make sure to be in the ship that you want t
 If you run into any issues while using the program or have suggestions for additional features, create an
 [Issue](https://github.com/Gobidev/EDNeutronAssistant/issues) so I can take a look at it and make the experience as smooth
 as possible.
+
+## Special Thanks
+Special thanks to Gareth Harper (Spansh), the creator of the Spansh plotters. Without these plotters, this program would never have
+existed and Neutron Highways in Elite: Dangerous wouldn't be nearly as accessible.
