@@ -30,51 +30,48 @@ def parse_game_log(log_function=print, verbose=False) -> list:
         log_function("Checking Host OS")
 
     if os.name == "nt":
-        if verbose:
-            log_function("Host OS is Windows, continuing")
-
-        # Retrieve newest log file
+        # Get log file directory
         windows_username = os.getlogin()
         file_directory = "C:\\Users\\" + windows_username + "\\Saved Games\\Frontier Developments\\Elite Dangerous"
-
-        if verbose:
-            log_function("Searching game log directory")
-
-        if not os.path.isdir(file_directory):
-            log_function("Game logs not found")
-            return []
-
-        if verbose:
-            log_function(f"Reading game log from {file_directory}")
-
-        all_files = [file_directory + "\\" + n for n in os.listdir(file_directory)]
-
-        # Filter files that are no logs
-        journal_files = []
-        for file in all_files:
-            if "Journal" in file:
-                journal_files.append(file)
-
-        newest_log_file = max(journal_files, key=os.path.getctime)
-
-        if verbose:
-            log_function(f"Found newest log file {newest_log_file}")
-
-        # Read log file
-        if verbose:
-            log_function(f"Reading log file {newest_log_file}")
-        with open(newest_log_file, "r", encoding="utf-8") as f:
-            all_entries = f.readlines()
-
-        entries_parsed = []
-        for entry in all_entries:
-            entries_parsed.append(json.loads(entry))
-
-        return entries_parsed
-
     else:
-        log_function("Installed OS is not supported")
+        file_directory = ""     # todo find out linux game log directory
+
+    if verbose:
+        log_function("Searching game log directory")
+
+    if not os.path.isdir(file_directory):
+        log_function("Game logs not found")
         return []
+
+    if verbose:
+        log_function(f"Reading game log from {file_directory}")
+
+    all_files = [os.path.join(file_directory, file) for file in os.listdir(file_directory)]
+
+    # Filter files that are no logs
+    journal_files = []
+    for file in all_files:
+
+        if "Journal" in file:
+            journal_files.append(file)
+
+    newest_log_file = max(journal_files, key=os.path.getctime)
+
+    if verbose:
+        log_function(f"Found newest log file {newest_log_file}")
+
+    # Read log file
+    if verbose:
+        log_function(f"Reading log file {newest_log_file}")
+
+    with open(newest_log_file, "r", encoding="utf-8") as f:
+        all_entries = f.readlines()
+
+    entries_parsed = []
+    for entry in all_entries:
+        entries_parsed.append(json.loads(entry))
+
+    return entries_parsed
 
 
 def get_current_system_from_log(entries_parsed: list, log_function=print, verbose=False) -> str:
@@ -262,11 +259,15 @@ def calc_simple_neutron_route(efficiency: int, ship_range: float, start_system: 
     log_function(f"Calculating route from {start_system} to {end_system} with efficiency {efficiency} and jump "
                  f"range {ship_range}")
 
-    if not os.path.isdir(config_path + "\\routes"):
-        os.mkdir(config_path + "\\routes")
+    routes_dir = os.path.join(config_path, "routes")
 
-    filename = f"{config_path}\\routes\\NeutronAssistantSimpleRoute-{efficiency}-{ship_range}-" \
+    if not os.path.isdir(routes_dir):
+        os.mkdir(routes_dir)
+
+    filename = f"NeutronAssistantSimpleRoute-{efficiency}-{ship_range}-" \
                f"{convert_system_name_for_file(start_system)}-{convert_system_name_for_file(end_system)}.json"
+
+    filename = os.path.join(routes_dir, filename)
 
     # Test if route was calculated before
     if not os.path.isfile(filename):
@@ -379,16 +380,20 @@ def calc_exact_neutron_route(start_system: str, end_system: str, ship_coriolis_b
 
     log_function(f"Calculating exact route from {start_system} to {end_system}")
 
-    if not os.path.isdir(config_path + "\\routes"):
-        os.mkdir(config_path + "\\routes")
+    routes_dir = os.path.join(config_path, "routes")
+
+    if not os.path.isdir(routes_dir):
+        os.mkdir(routes_dir)
 
     ship_code_hash = hashlib.md5(ship_coriolis_build["references"][0]["code"].encode("utf-8")).hexdigest()[:5]
-    filename = f"{config_path}\\routes\\NeutronAssistantExactRoute--" \
+    filename = f"NeutronAssistantExactRoute--" \
                f"{convert_system_name_for_file(start_system)}-" \
                f"{convert_system_name_for_file(end_system)}-{ship_code_hash}-{cargo}-" \
                f"{'Y' if already_supercharged else 'N'}-" \
                f"{'Y' if use_supercharge else 'N'}-{'Y' if use_injections else 'N'}-" \
                f"{'Y' if exclude_secondary_stars else 'N'}.json "
+
+    filename = os.path.join(routes_dir, filename)
 
     # Test if route was calculated before
     if not os.path.isfile(filename):
