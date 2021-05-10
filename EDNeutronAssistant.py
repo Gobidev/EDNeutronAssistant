@@ -36,13 +36,17 @@ class MainApplication(ttk.Frame):
         # Setting variables
         self.verbose = False
         self.poll_rate = 1
-        self.config_path = os.path.join(os.getenv("APPDATA"), "EDNeutronAssistant")
+
+        if os.name == "nt":
+            self.config_path = os.path.join(os.getenv("APPDATA"), "EDNeutronAssistant")
+        else:
+            self.config_path = os.path.join(os.path.expanduser("~"), ".config", "EDNeutronAssistant")
 
         self.configuration = {"current_system": "", "ship_coriolis_build": {}, "jump_range_coriolis": 0,
                               "jump_range_log": 0, "commander_name": ""}
 
         try:
-            self.configuration = json.load(open(self.config_path + "\\config.json", "r"))
+            self.configuration = json.load(open(os.path.join(self.config_path, "config.json"), "r"))
         except FileNotFoundError:
             pass
 
@@ -55,7 +59,7 @@ class MainApplication(ttk.Frame):
 
         # Creating working directory
         if not os.path.isdir(self.config_path):
-            os.mkdir(self.config_path)
+            os.makedirs(self.config_path)
 
         self.write_config()
 
@@ -81,8 +85,10 @@ class MainApplication(ttk.Frame):
 
         self.log_frame.add_to_log(entry)
 
-        if not os.path.isdir(self.config_path + "\\logs"):
-            os.mkdir(self.config_path + "\\logs")
+        logs_dir = os.path.join(self.config_path + "logs")
+
+        if not os.path.isdir(logs_dir):
+            os.makedirs(logs_dir)
 
         with open(os.path.join(self.config_path, "logs",
                                f"EDNeutronAssistant-{time.strftime('%Y-%m-%d')}.log"), "a") as f:
@@ -90,7 +96,7 @@ class MainApplication(ttk.Frame):
 
     def write_config(self):
         """Writes the current configuration to the config file"""
-        with open(self.config_path + "\\config.json", "w") as f:
+        with open(os.path.join(self.config_path, "config.json"), "w") as f:
             json.dump(self.configuration, f, indent=2)
         if self.verbose:
             self.print_log("Saved configuration to file")
@@ -330,7 +336,7 @@ class MainApplication(ttk.Frame):
 
         while 1:
             # Parse game log
-            parsed_log = utils.parse_game_log(verbose=self.verbose)
+            parsed_log = utils.parse_game_log(verbose=self.verbose, log_function=self.print_log)
 
             try:
                 update_commander_name(parsed_log)
@@ -371,7 +377,9 @@ if __name__ == '__main__':
     else:
         icon_path = os.path.join(os.getcwd(), icon_path)
 
-    root.iconbitmap(default=icon_path)
+    if os.name == "nt":
+        # todo find out how icons work on linux
+        root.iconbitmap(default=icon_path)
 
     ed_neutron_assistant = MainApplication(root, root)
     ed_neutron_assistant.pack(fill="both", padx=5, pady=5)

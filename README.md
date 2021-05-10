@@ -9,7 +9,8 @@ The main features of this program are easy calculation of Neutron Highways and a
 the route to the clipboard to avoid the need to tab out of the game in every system.
 
 ## Planned Features
-- [ ] Linux Steam Play support
+- [x] Linux Steam Play support
+- [ ] Linux standalone binary
 - [ ] Implementation of other Spansh plotters
 - [ ] dark mode
 - [ ] UI redesign
@@ -21,7 +22,32 @@ Running the program on Windows is as easy as downloading the latest standalone E
 [releases tab](https://github.com/Gobidev/EDNeutronAssistant/releases/) and running it.
 
 ### Linux
-As of now, the program only works on Windows, but linux support is planned and will be available in the future.
+To run the program on linux, you can follow these steps:
+
+- Install Python 3.9 (older versions might work, but not tested)
+- Install the required packages with your package manager
+
+    **Debian-based distros (Ubuntu, Linux MINT, etc.):**
+
+    `$ sudo apt install python3 python3-pip python3-tkinter xsel git`
+
+    **RHEL-based distros (Fedora, etc.):**
+
+    `$ sudo dnf install python3 python3-pip python3-tkinter xsel git`
+
+- Clone this repository
+
+    `$ git clone https://github.com/Gobidev/EDNeutronAssistant.git`
+
+- Install the required pip packages
+
+    `$ pip3 install -r EDNeutronAssistant/requirements.txt`
+
+- Run EDNeutronAssistant.py
+
+    `$ python3 EDNeutronAssistant/EDNeutronAssistant.py`
+
+To hide the console, you can run the program inside a screen or tmux session and then detach from that. 
 
 ## Usage
 The UI of EDNeutronAssistant is split into three main parts.
