@@ -85,7 +85,7 @@ class MainApplication(ttk.Frame):
 
         self.log_frame.add_to_log(entry)
 
-        logs_dir = os.path.join(self.config_path + "logs")
+        logs_dir = os.path.join(self.config_path, "logs")
 
         if not os.path.isdir(logs_dir):
             os.makedirs(logs_dir)
