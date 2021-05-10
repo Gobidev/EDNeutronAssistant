@@ -19,7 +19,7 @@ def update_available() -> (bool, str):
     """Check for available update on GitHub and return version if available"""
 
     newest_version = requests.get("https://api.github.com/repos/Gobidev/EDNeutronAssistant/releases/latest").json()
-    newest_version = newest_version["name"].split(" ")[-1]
+    newest_version = newest_version["tag_name"]
 
     if newest_version != __version__:
         return True, newest_version
@@ -347,10 +347,10 @@ class RouteSelection(ttk.Notebook):
 
 
 class MainApplication(ttk.Frame):
-    def __init__(self, parent_window, *args, **kwargs):
+    def __init__(self, master, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.parent_window = parent_window
+        self.master = master
 
         # UI elements
         self.status_information_frame = StatusInformation(self, self)
@@ -684,7 +684,7 @@ class MainApplication(ttk.Frame):
 
     def terminate(self):
         self.configuration["exiting"] = True
-        self.parent_window.destroy()
+        self.master.destroy()
 
 
 if __name__ == '__main__':
