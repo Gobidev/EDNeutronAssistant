@@ -10,6 +10,18 @@ import base64
 import hashlib
 
 
+def update_available(current_version: str) -> (bool, str):
+    """Check for available update on GitHub and return version if available"""
+
+    newest_version = requests.get("https://api.github.com/repos/Gobidev/EDNeutronAssistant/releases/latest").json()
+    newest_version = newest_version["tag_name"]
+
+    if newest_version != current_version:
+        return True, newest_version
+    else:
+        return False, current_version
+
+
 def parse_game_log(log_function=print, verbose=False) -> list:
     """Parses the Elite: Dangerous logfiles to retrieve information about the game"""
 
