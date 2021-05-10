@@ -336,7 +336,7 @@ class MainApplication(ttk.Frame):
 
         while 1:
             # Parse game log
-            parsed_log = utils.parse_game_log(verbose=self.verbose)
+            parsed_log = utils.parse_game_log(verbose=self.verbose, log_function=self.print_log)
 
             try:
                 update_commander_name(parsed_log)
