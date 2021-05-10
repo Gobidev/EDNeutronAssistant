@@ -632,8 +632,8 @@ class MainApplication(ttk.Frame):
                     index_next_system = all_route_systems.index(current_system) + 1
 
                     next_system = all_route_systems[index_next_system]
-                    next_system_distance = round(route_[index_current_system]["distance_to_destination"] -
-                                                 route_[index_next_system]["distance_to_destination"], 2)
+                    next_system_distance = round(route_[index_next_system]["distance"] -
+                                                 route_[index_current_system]["distance"], 2)
                     next_system_jumps = 1
                     next_system_is_neutron = route_[index_next_system]["has_neutron"]
 
