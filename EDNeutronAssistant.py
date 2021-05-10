@@ -59,7 +59,7 @@ class MainApplication(ttk.Frame):
 
         # Creating working directory
         if not os.path.isdir(self.config_path):
-            os.mkdir(self.config_path)
+            os.makedirs(self.config_path)
 
         self.write_config()
 
@@ -88,7 +88,7 @@ class MainApplication(ttk.Frame):
         logs_dir = os.path.join(self.config_path + "logs")
 
         if not os.path.isdir(logs_dir):
-            os.mkdir(logs_dir)
+            os.makedirs(logs_dir)
 
         with open(os.path.join(self.config_path, "logs",
                                f"EDNeutronAssistant-{time.strftime('%Y-%m-%d')}.log"), "a") as f:
