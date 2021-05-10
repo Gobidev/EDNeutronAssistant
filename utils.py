@@ -29,12 +29,17 @@ def parse_game_log(log_function=print, verbose=False) -> list:
     if verbose:
         log_function("Checking Host OS")
 
+    # Get log file directory
     if os.name == "nt":
-        # Get log file directory
         windows_username = os.getlogin()
         file_directory = "C:\\Users\\" + windows_username + "\\Saved Games\\Frontier Developments\\Elite Dangerous"
+    elif os.name == "posix":
+        linux_home_dir = os.path.expanduser("~")
+        file_directory = f"{linux_home_dir}/.local/share/Steam/steamapps/compatdata/359320/pfx/drive_c/users/" \
+                         f"steamuser/Saved Games/Frontier Developments/Elite Dangerous/"
     else:
-        file_directory = ""     # todo find out linux game log directory
+        log_function("Unsupported os")
+        return []
 
     if verbose:
         log_function("Searching game log directory")
@@ -262,7 +267,7 @@ def calc_simple_neutron_route(efficiency: int, ship_range: float, start_system: 
     routes_dir = os.path.join(config_path, "routes")
 
     if not os.path.isdir(routes_dir):
-        os.mkdir(routes_dir)
+        os.makedirs(routes_dir)
 
     filename = f"NeutronAssistantSimpleRoute-{efficiency}-{ship_range}-" \
                f"{convert_system_name_for_file(start_system)}-{convert_system_name_for_file(end_system)}.json"
@@ -383,7 +388,7 @@ def calc_exact_neutron_route(start_system: str, end_system: str, ship_coriolis_b
     routes_dir = os.path.join(config_path, "routes")
 
     if not os.path.isdir(routes_dir):
-        os.mkdir(routes_dir)
+        os.makedirs(routes_dir)
 
     ship_code_hash = hashlib.md5(ship_coriolis_build["references"][0]["code"].encode("utf-8")).hexdigest()[:5]
     filename = f"NeutronAssistantExactRoute--" \
