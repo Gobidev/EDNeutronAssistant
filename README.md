@@ -1,4 +1,10 @@
 # EDNeutronAssistant
+[![Github Downloads all Releases](https://img.shields.io/github/downloads/Gobidev/EDNeutronAssistant/total)](https://github.com/Gobidev/EDNeutronAssistant/releases)
+[![Github Downloads latest Release](https://img.shields.io/github/downloads/Gobidev/EDNeutronAssistant/latest/total)](https://github.com/Gobidev/EDNeutronAssistant/releases/latest)
+[![License](https://img.shields.io/github/license/Gobidev/EDNeutronAssistant)](https://github.com/Gobidev/EDNeutronAssistant/blob/main/LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/Gobidev/EDNeutronAssistant)](https://github.com/Gobidev/EDNeutronAssistant/issues)
+
+
 A tool for Elite Dangerous that helps to use Neutron Highways
 
 This project is a continuation of [EDRouteManager](https://github.com/Gobidev/EDRouteManager) that I made a while ago
@@ -11,6 +17,7 @@ the route to the clipboard to avoid the need to tab out of the game in every sys
 ## Planned Features
 - [x] Linux Steam Play support
 - [ ] Linux standalone binary
+- [ ] custom game log directory  
 - [ ] Implementation of other Spansh plotters
 - [ ] dark mode
 - [ ] UI redesign
@@ -82,3 +89,6 @@ as possible.
 ## Special Thanks
 Special thanks to Gareth Harper (Spansh), the creator of the Spansh plotters. Without these plotters, this program would never have
 existed and Neutron Highways in Elite: Dangerous wouldn't be nearly as accessible.
+
+# License
+This project is licensed under the MIT license
