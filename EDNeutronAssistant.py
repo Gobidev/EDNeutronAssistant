@@ -20,18 +20,20 @@ class MainApplication(ttk.Frame):
 
         self.master = master
 
+        self.title_bar = None
+
         # UI elements
         self.status_information_frame = gui.StatusInformation(self, self)
-        self.status_information_frame.grid(row=0, column=0, sticky="W")
+        self.status_information_frame.grid(row=1, column=0, sticky="W")
 
         self.log_frame = gui.LogFrame(self)
-        self.log_frame.grid(row=1, column=0)
+        self.log_frame.grid(row=2, column=0)
 
         self.route_selection_lbl = ttk.Label(self, text="Route Calculator")
-        self.route_selection_lbl.grid(row=2, column=0, sticky="W", pady=4)
+        self.route_selection_lbl.grid(row=3, column=0, sticky="W", pady=4)
 
         self.route_selection = gui.RouteSelection(self, self)
-        self.route_selection.grid(row=3, column=0, ipadx=40, sticky="W")
+        self.route_selection.grid(row=4, column=0, ipadx=40, sticky="W")
 
         # Setting variables
         self.verbose = False
@@ -104,6 +106,28 @@ class MainApplication(ttk.Frame):
     def change_state_of_all_calculate_buttons(self, state: str):
         self.route_selection.simple_route_selection_tab.calculate_button.configure(state=state)
         self.route_selection.exact_route_selection_tab.calculate_button.configure(state=state)
+
+    def apply_theme(self, theme: str):
+        style = ttk.Style(self.master)
+
+        if theme == "default":
+            # todo does not revert everything from dark mode
+            if self.title_bar:
+                self.title_bar.destroy()
+
+            style.theme_use("vista")
+            self.master.overrideredirect(False)
+
+        elif theme == "ed-dark":
+            self.master.tk.call("source", os.path.join("themes", "ed-azure-dark.tcl"))
+            style.theme_use("ed-azure-dark")
+
+            if os.name == "nt":
+                self.title_bar = gui.TitleBar(self, self.master, TITLE, "#000000", "#FF8000", "#FF8000", "#000000")
+                self.title_bar.grid(row=0, column=0, sticky="ew")
+
+                self.master.overrideredirect(True)
+                self.master.after(10, lambda: gui.set_app_window(self.master))
 
     def application_loop(self):
         """Main loop of application running checks in time intervals of self.poll_rate"""
@@ -365,7 +389,11 @@ if __name__ == '__main__':
     root = tk.Tk()
 
     root.resizable(False, False)
-    root.title(f"EDNeutronAssistant {__version__}")
+
+    TITLE = f"EDNeutronAssistant {__version__}"
+    root.title(TITLE)
+
+    root.geometry("+200+200")
 
     # Set logo file path according to environment
     icon_path = "logo.ico"
@@ -378,11 +406,14 @@ if __name__ == '__main__':
         icon_path = os.path.join(os.getcwd(), icon_path)
 
     if os.name == "nt":
-        # todo find out how icons work on linux
         root.iconbitmap(default=icon_path)
 
     ed_neutron_assistant = MainApplication(root, root)
     ed_neutron_assistant.pack(fill="both", padx=5, pady=5)
+
+    # Enable verbose when called with -v flag
+    if "-v" in sys.argv or "--verbose" in sys.argv:
+        ed_neutron_assistant.verbose = True
 
     # Exit program when closing
     root.protocol("WM_DELETE_WINDOW", ed_neutron_assistant.terminate)
@@ -399,5 +430,8 @@ if __name__ == '__main__':
             webbrowser.open_new_tab(f"https://github.com/Gobidev/EDNeutronAssistant/releases/latest")
     else:
         ed_neutron_assistant.print_log(f"Already running latest version")
+
+    # todo should be called from menu in future
+    ed_neutron_assistant.apply_theme("ed-dark")
 
     root.mainloop()
