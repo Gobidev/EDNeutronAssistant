@@ -62,9 +62,6 @@ def parse_game_log(log_function=print, verbose=False) -> list:
 
     newest_log_file = max(journal_files, key=os.path.getctime)
 
-    if verbose:
-        log_function(f"Found newest log file {newest_log_file}")
-
     # Read log file
     if verbose:
         log_function(f"Reading log file {newest_log_file}")
