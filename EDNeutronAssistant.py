@@ -8,9 +8,11 @@ import tkinter.messagebox
 import json
 import threading
 
-import gui
-import utils
-import menu
+if __name__ == '__main__':
+    import gui
+    import utils
+    import api_access
+    import menu
 
 __version__ = "v3.0"
 
@@ -224,7 +226,7 @@ class MainApplication(ttk.Frame):
             def set_new_ship_build(loadout_event: dict):
 
                 # Convert build to coriolis build
-                build = utils.convert_loadout_event_to_coriolis(loadout_event)
+                build = api_access.convert_loadout_event_to_coriolis(loadout_event)
                 jump_range_coriolis = build["stats"]["fullTankRange"]
 
                 self.configuration["ship_coriolis_build"] = build
@@ -309,9 +311,9 @@ class MainApplication(ttk.Frame):
                 # Current system is off route
                 index_current_system = all_route_systems.index(self.configuration["last_route_system"])
                 next_system = all_route_systems[index_current_system + 1]
-                next_system_distance = utils.get_distance_between_systems(current_system, next_system,
-                                                                          log_function=self.print_log,
-                                                                          verbose=self.verbose)
+                next_system_distance = api_access.get_distance_between_systems(current_system, next_system,
+                                                                               log_function=self.print_log,
+                                                                               verbose=self.verbose)
                 next_system_is_neutron = route_[all_route_systems.index("next_system")]["neutron_star"]
                 next_system_jumps = round(next_system_distance / self.configuration["ship_build"]["stats"][
                     "fullTankRange"], 2)
@@ -363,9 +365,9 @@ class MainApplication(ttk.Frame):
                 # Current system is off route
                 index_current_system = all_route_systems.index(self.configuration["last_route_system"])
                 next_system = all_route_systems[index_current_system + 1]
-                next_system_distance = utils.get_distance_between_systems(current_system, next_system,
-                                                                          log_function=self.print_log,
-                                                                          verbose=self.verbose)
+                next_system_distance = api_access.get_distance_between_systems(current_system, next_system,
+                                                                               log_function=self.print_log,
+                                                                               verbose=self.verbose)
                 next_system_is_neutron = route_[all_route_systems.index("next_system")]["has_neutron"]
                 next_system_jumps = round(next_system_distance / self.configuration["ship_build"]["stats"][
                     "fullTankRange"], 2)
@@ -439,7 +441,7 @@ if __name__ == '__main__':
 
     # Check for update
     ed_neutron_assistant.print_log("Checking GitHub for updates")
-    update, version = utils.update_available(__version__)
+    update, version = api_access.update_available(__version__)
 
     if update:
         ed_neutron_assistant.print_log(f"Found new version {version}")
