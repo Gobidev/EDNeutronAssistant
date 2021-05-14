@@ -41,7 +41,7 @@ setup(
         "build_exe": {
             "packages": ["os", "sys", "time", "requests", "urllib.parse", "tkinter", "tkinter.ttk", "clipboard", "json",
                          "threading", "tkinter.messagebox", "webbrowser", "io", "base64", "gzip"],
-            "include_files": ["logo.ico"],
+            "include_files": ["logo.ico", "themes"],
             "include_msvcr": True
         },
         "bdist_msi": {
