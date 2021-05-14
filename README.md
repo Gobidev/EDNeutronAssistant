@@ -19,7 +19,7 @@ the route to the clipboard to avoid the need to tab out of the game in every sys
 - [ ] Linux standalone binary
 - [ ] custom game log directory  
 - [ ] Implementation of other Spansh plotters
-- [ ] dark mode
+- [x] dark mode
 - [ ] UI redesign
 
 ## Installation
