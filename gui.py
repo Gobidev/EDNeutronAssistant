@@ -9,7 +9,7 @@ except ImportError:
     windll = None
 
 import autocomplete
-import utils
+import api_access
 
 
 class StatusInformation(ttk.Frame):
@@ -174,9 +174,9 @@ class SimpleRouteSelection(ttk.Frame):
             self.master.change_state_of_all_calculate_buttons("normal")
             return
 
-        route_systems = utils.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system,
-                                                        self.master.config_path,
-                                                        log_function=self.master.print_log)
+        route_systems = api_access.calc_simple_neutron_route(efficiency, jump_range, from_system, to_system,
+                                                             self.master.config_path,
+                                                             log_function=self.master.print_log)
 
         self.master.change_state_of_all_calculate_buttons("normal")
 
@@ -290,10 +290,10 @@ class ExactRouteSelection(ttk.Frame):
             self.master.change_state_of_all_calculate_buttons("normal")
             return
 
-        route_systems = utils.calc_exact_neutron_route(from_system, to_system, ship_build, cargo,
-                                                       already_supercharged, use_supercharge, use_injections,
-                                                       exclude_secondary, config_path=self.master.config_path,
-                                                       log_function=self.master.print_log)
+        route_systems = api_access.calc_exact_neutron_route(from_system, to_system, ship_build, cargo,
+                                                            already_supercharged, use_supercharge, use_injections,
+                                                            exclude_secondary, config_path=self.master.config_path,
+                                                            log_function=self.master.print_log)
 
         self.master.change_state_of_all_calculate_buttons("normal")
 
