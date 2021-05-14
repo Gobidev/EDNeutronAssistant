@@ -431,18 +431,3 @@ def set_app_window(root_window: tk.Tk, verbose=False):
         print(res)
     root_window.wm_withdraw()
     root_window.after(10, lambda: root_window.wm_deiconify())
-
-
-# Test custom title bar
-if __name__ == '__main__':
-    root = tk.Tk()
-
-    root.geometry('400x100+200+200')
-
-    title_bar = TitleBar(root, root, "Test", "#000000", "#FF8000", "#FF8000", "#000000")
-    title_bar.pack(fill="x")
-
-    root.overrideredirect(1)
-    root.after(10, lambda: set_app_window(root))
-
-    root.mainloop()
