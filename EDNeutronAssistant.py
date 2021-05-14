@@ -14,7 +14,7 @@ if __name__ == '__main__':
     import api_access
     import menu
 
-__version__ = "v3.0"
+__version__ = "v3.1"
 
 # Find out run path in current environment
 if hasattr(sys, "_MEIPASS"):
