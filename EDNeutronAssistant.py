@@ -10,8 +10,18 @@ import threading
 
 import gui
 import utils
+import menu
 
-__version__ = "v2.1"
+__version__ = "v3.0"
+
+# Find out run path in current environment
+if hasattr(sys, "_MEIPASS"):
+    # noinspection PyProtectedMember
+    PATH = sys._MEIPASS
+elif getattr(sys, "frozen", False):
+    PATH = os.path.dirname(sys.executable)
+else:
+    PATH = os.getcwd()
 
 
 class MainApplication(ttk.Frame):
@@ -20,18 +30,23 @@ class MainApplication(ttk.Frame):
 
         self.master = master
 
+        self.title_bar = None
+
         # UI elements
         self.status_information_frame = gui.StatusInformation(self, self)
-        self.status_information_frame.grid(row=0, column=0, sticky="W")
+        self.status_information_frame.grid(row=1, column=0, columnspan=2, sticky="W")
+
+        self.menu_button = menu.MainMenuButton(self, self)
+        self.menu_button.grid(row=1, column=1, sticky="NE")
 
         self.log_frame = gui.LogFrame(self)
-        self.log_frame.grid(row=1, column=0)
+        self.log_frame.grid(row=2, column=0, columnspan=2)
 
         self.route_selection_lbl = ttk.Label(self, text="Route Calculator")
-        self.route_selection_lbl.grid(row=2, column=0, sticky="W", pady=4)
+        self.route_selection_lbl.grid(row=3, column=0, columnspan=2, sticky="W", pady=4)
 
         self.route_selection = gui.RouteSelection(self, self)
-        self.route_selection.grid(row=3, column=0, ipadx=40, sticky="W")
+        self.route_selection.grid(row=4, column=0, columnspan=2, ipadx=40, sticky="W")
 
         # Setting variables
         self.verbose = False
@@ -46,7 +61,7 @@ class MainApplication(ttk.Frame):
                               "jump_range_log": 0, "commander_name": ""}
 
         try:
-            self.configuration = json.load(open(os.path.join(self.config_path, "config.json"), "r"))
+            self.configuration = json.load(open(os.path.join(self.config_path, "data.json"), "r"))
         except FileNotFoundError:
             pass
 
@@ -96,7 +111,7 @@ class MainApplication(ttk.Frame):
 
     def write_config(self):
         """Writes the current configuration to the config file"""
-        with open(os.path.join(self.config_path, "config.json"), "w") as f:
+        with open(os.path.join(self.config_path, "data.json"), "w") as f:
             json.dump(self.configuration, f, indent=2)
         if self.verbose:
             self.print_log("Saved configuration to file")
@@ -104,6 +119,38 @@ class MainApplication(ttk.Frame):
     def change_state_of_all_calculate_buttons(self, state: str):
         self.route_selection.simple_route_selection_tab.calculate_button.configure(state=state)
         self.route_selection.exact_route_selection_tab.calculate_button.configure(state=state)
+
+    def apply_theme(self, theme: int):
+        style = ttk.Style(self.master)
+
+        if theme == 0:
+            # Should preferably not be used, as theme is not properly applied based on theme before
+            if self.title_bar:
+                self.title_bar.destroy()
+
+            style.theme_use("vista")
+            self.master.overrideredirect(False)
+
+        elif theme == 1:
+            try:
+                root.tk.call("source", os.path.join(PATH, "themes", "ed-azure-dark.tcl"))
+            except tk.TclError:
+                pass
+            style.theme_use("ed-azure-dark")
+
+            # On windows, use custom title bar to match dark theme
+            if os.name == "nt":
+                self.title_bar = gui.TitleBar(self, self.master, TITLE, "#000000", "#FF8000", "#FF8000", "#000000")
+                self.title_bar.grid(row=0, column=0, columnspan=2, sticky="ew")
+
+                self.master.overrideredirect(True)
+                self.master.after(10, lambda: gui.set_app_window(self.master))
+
+            # Fix notebook size
+            current_page = self.route_selection.index(self.route_selection.select())
+            self.route_selection.select(0)
+            if current_page:
+                self.route_selection.select(current_page)
 
     def application_loop(self):
         """Main loop of application running checks in time intervals of self.poll_rate"""
@@ -365,27 +412,30 @@ if __name__ == '__main__':
     root = tk.Tk()
 
     root.resizable(False, False)
-    root.title(f"EDNeutronAssistant {__version__}")
+
+    TITLE = f"EDNeutronAssistant {__version__}"
+    root.title(TITLE)
+
+    root.geometry("+200+200")
 
     # Set logo file path according to environment
-    icon_path = "logo.ico"
-    if hasattr(sys, "_MEIPASS"):
-        # noinspection PyProtectedMember
-        icon_path = os.path.join(sys._MEIPASS, icon_path)
-    elif getattr(sys, "frozen", False):
-        icon_path = os.path.join(os.path.dirname(sys.executable), icon_path)
-    else:
-        icon_path = os.path.join(os.getcwd(), icon_path)
+    icon_path = os.path.join(PATH, "logo.ico")
 
     if os.name == "nt":
-        # todo find out how icons work on linux
         root.iconbitmap(default=icon_path)
 
     ed_neutron_assistant = MainApplication(root, root)
-    ed_neutron_assistant.pack(fill="both", padx=5, pady=5)
+    ed_neutron_assistant.grid(sticky="NEWS", padx=5, pady=5)
+
+    # Enable verbose when called with -v flag
+    if "-v" in sys.argv or "--verbose" in sys.argv:
+        ed_neutron_assistant.verbose = True
 
     # Exit program when closing
     root.protocol("WM_DELETE_WINDOW", ed_neutron_assistant.terminate)
+
+    # apply settings theme
+    ed_neutron_assistant.apply_theme(menu.USER_SETTINGS["theme"])
 
     # Check for update
     ed_neutron_assistant.print_log("Checking GitHub for updates")

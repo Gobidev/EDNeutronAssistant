@@ -5,10 +5,10 @@ build_all() {
   echo "" > "build.log"
 
   echo "Building standalone exe"
-  pyinstaller --noconfirm --windowed --onefile --icon "logo.ico" --add-data "logo.ico;." "EDNeutronAssistant.py"
+  pyinstaller --noconfirm --windowed --onefile --icon "logo.ico" --add-data "logo.ico;." --add-data "themes;themes/" "EDNeutronAssistant.py" || exit 1
 
   echo "Building windows installer"
-  python setup.py bdist_msi
+  python setup.py bdist_msi || exit 2
 }
 
 build_all | tee "build.log"

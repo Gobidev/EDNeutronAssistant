@@ -19,7 +19,7 @@ the route to the clipboard to avoid the need to tab out of the game in every sys
 - [ ] Linux standalone binary
 - [ ] custom game log directory  
 - [ ] Implementation of other Spansh plotters
-- [ ] dark mode
+- [x] dark mode
 - [ ] UI redesign
 
 ## Installation
@@ -90,5 +90,5 @@ as possible.
 Special thanks to Gareth Harper (Spansh), the creator of the Spansh plotters. Without these plotters, this program would never have
 existed and Neutron Highways in Elite: Dangerous wouldn't be nearly as accessible.
 
-# License
+## License
 This project is licensed under the MIT license

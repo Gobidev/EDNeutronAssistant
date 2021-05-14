@@ -2,6 +2,12 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import threading
 
+try:
+    from ctypes import windll
+# Avoid import error on systems other than windows
+except ImportError:
+    windll = None
+
 import autocomplete
 import utils
 
@@ -323,3 +329,105 @@ class RouteSelection(ttk.Notebook):
 
         self.exact_route_selection_tab = ExactRouteSelection(master)
         self.add(self.exact_route_selection_tab, text="Exact Route")
+
+
+class TitleBarButton(tk.Button):
+    def __init__(self, master, text, command=None):
+        self.master = master
+        self.text = text
+
+        self.font = ("Arial Rounded MT Bold", 11, "bold")
+
+        super().__init__(master, bd=0, font=self.font, padx=5, pady=2, fg=self.master.fg, bg=self.master.bg,
+                         activebackground=self.master.bga, activeforeground=self.master.fga, highlightthickness=0,
+                         text=self.text, command=command)
+
+        self.bind('<Enter>', self.on_enter)
+        self.bind('<Leave>', self.on_leave)
+
+    def on_enter(self, _):
+        self['bg'] = self.master.bga
+        self["fg"] = self.master.fga
+
+    def on_leave(self, _):
+        self['bg'] = self.master.bg
+        self["fg"] = self.master.fg
+
+
+class TitleBar(tk.Frame):
+
+    def __init__(self, master, root_, title, bg, fg, bga, fga):
+        super().__init__(master, bd=1, bg=bg)
+
+        self.title = title
+        self.master = master
+        self.root = root_
+        self.bg = bg
+        self.fg = fg
+        self.bga = bga
+        self.fga = fga
+
+        self.x_win = 0
+        self.y_win = 0
+
+        self.minimized = False
+
+        self.title_lbl = tk.Label(self, bg=self.bg, fg=self.fg)
+
+        self.set_title(title)
+
+        if isinstance(self.master, tk.Tk):
+            close_command = self.root.destroy
+        else:
+            close_command = self.master.terminate
+
+        self.close_button = TitleBarButton(self, "X", command=close_command)
+
+        self.minimize_button = TitleBarButton(self, "-", command=self.minimize)
+
+        self.title_lbl.pack(side="left")
+        self.close_button.pack(side="right")
+        self.minimize_button.pack(side="right")
+
+        self.bind("<ButtonPress-1>", self.on_press)
+        self.bind("<B1-Motion>", self.on_move)
+        self.bind("<Map>", self.frame_mapped)
+
+    def set_title(self, title: str):
+        self.title = title
+        self.title_lbl.configure(text=title)
+
+    def on_press(self, event):
+        self.x_win = event.x
+        self.y_win = event.y
+
+    def on_move(self, event):
+        x = event.x_root - self.x_win
+        y = event.y_root - self.y_win
+        self.root.geometry(f'+{x}+{y}')
+
+    def minimize(self):
+        self.root.update_idletasks()
+        self.root.overrideredirect(False)
+        self.root.state('iconic')
+        self.minimized = True
+
+    def frame_mapped(self, _):
+        self.root.update_idletasks()
+        self.root.overrideredirect(True)
+        self.root.state('normal')
+        if self.minimized:
+            self.root.after(10, lambda: set_app_window(self.root))
+            self.minimized = False
+
+
+def set_app_window(root_window: tk.Tk, verbose=False):
+    hwnd = windll.user32.GetParent(root_window.winfo_id())
+    style = windll.user32.GetWindowLongPtrW(hwnd, -20)
+    style = style & ~0x00000080
+    style = style | 0x00040000
+    res = windll.user32.SetWindowLongPtrW(hwnd, -20, style)
+    if verbose:
+        print(res)
+    root_window.wm_withdraw()
+    root_window.after(10, lambda: root_window.wm_deiconify())
