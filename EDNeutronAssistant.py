@@ -14,7 +14,7 @@ if __name__ == '__main__':
     import api_access
     import menu
 
-__version__ = "v3.1"
+__version__ = "v3.1.1"
 
 # Find out run path in current environment
 if hasattr(sys, "_MEIPASS"):
@@ -125,15 +125,7 @@ class MainApplication(ttk.Frame):
     def apply_theme(self, theme: int):
         style = ttk.Style(self.master)
 
-        if theme == 0:
-            # Should preferably not be used, as theme is not properly applied based on theme before
-            if self.title_bar:
-                self.title_bar.destroy()
-
-            style.theme_use("vista")
-            self.master.overrideredirect(False)
-
-        elif theme == 1:
+        if theme == 1:
             try:
                 root.tk.call("source", os.path.join(PATH, "themes", "ed-azure-dark.tcl"))
             except tk.TclError:
@@ -437,7 +429,8 @@ if __name__ == '__main__':
     root.protocol("WM_DELETE_WINDOW", ed_neutron_assistant.terminate)
 
     # apply settings theme
-    ed_neutron_assistant.apply_theme(menu.USER_SETTINGS["theme"])
+    if menu.USER_SETTINGS["theme"] != 0:
+        ed_neutron_assistant.apply_theme(menu.USER_SETTINGS["theme"])
 
     # Check for update
     ed_neutron_assistant.print_log("Checking GitHub for updates")
