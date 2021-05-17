@@ -142,8 +142,11 @@ class MainApplication(ttk.Frame):
 
             # Fix notebook size
             current_page = self.route_selection.index(self.route_selection.select())
-            self.route_selection.select(0)
-            if current_page:
+            if current_page != 0:
+                self.route_selection.select(0)
+                self.route_selection.select(current_page)
+            elif current_page == 0:
+                self.route_selection.select(1)
                 self.route_selection.select(current_page)
 
     def application_loop(self):
